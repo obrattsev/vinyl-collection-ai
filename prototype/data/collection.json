@@ -1,0 +1,67 @@
+[
+  {
+    "artist": "Тестовый исполнитель «Тихий берег»",
+    "album": "Тестовый альбом «Утренний свет»",
+    "genre": "Jazz",
+    "label": "Тестовый лейбл A",
+    "albumYear": "2020",
+    "recordYear": "2020",
+    "editionType": "Оригинал",
+    "purchaseDate": null,
+    "purchaseStore": null,
+    "purchasePrice": null,
+    "note": "Вымышленные тестовые данные. Обычный альбом"
+  },
+  {
+    "artist": "Тестовая группа «Орбита»",
+    "album": "Тестовый альбом «Сигнал»",
+    "genre": "Rock",
+    "label": "Тестовый лейбл B",
+    "albumYear": "1990",
+    "recordYear": "1990",
+    "editionType": "Оригинал",
+    "purchaseDate": null,
+    "purchaseStore": null,
+    "purchasePrice": null,
+    "note": "Вымышленные тестовые данные. Первое из двух разных изданий"
+  },
+  {
+    "artist": "Тестовая группа «Орбита»",
+    "album": "Тестовый альбом «Сигнал»",
+    "genre": "Rock",
+    "label": "Тестовый лейбл C",
+    "albumYear": "1990",
+    "recordYear": "2024",
+    "editionType": "Переиздание",
+    "purchaseDate": null,
+    "purchaseStore": null,
+    "purchasePrice": null,
+    "note": "Вымышленные тестовые данные. Второе из двух разных изданий"
+  },
+  {
+    "artist": "Тестовый ансамбль «Пульс»",
+    "album": "Тестовый двойной альбом «Два горизонта»",
+    "genre": "Electronic",
+    "label": null,
+    "albumYear": "2022",
+    "recordYear": null,
+    "editionType": null,
+    "purchaseDate": null,
+    "purchaseStore": null,
+    "purchasePrice": null,
+    "note": "Вымышленные тестовые данные. Многодисковое издание: 2 LP, одна строка"
+  },
+  {
+    "artist": "Various Artists",
+    "album": "Тестовый box set «Архив вымышленных звуков»",
+    "genre": null,
+    "label": "Тестовый лейбл D",
+    "albumYear": "2023",
+    "recordYear": "2023",
+    "editionType": "Оригинал",
+    "purchaseDate": null,
+    "purchaseStore": null,
+    "purchasePrice": null,
+    "note": "Вымышленные тестовые данные. Box set: 4 LP, год первоначального выпуска самого комплекта"
+  }
+]

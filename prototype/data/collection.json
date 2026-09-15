@@ -23,7 +23,8 @@
     "purchaseDate": null,
     "purchaseStore": null,
     "purchasePrice": null,
-    "note": "Вымышленные тестовые данные. Первое из двух разных изданий"
+    "note": "Вымышленные тестовые данные. Первое из двух разных изданий",
+    "additionalGenre": "Progressive Rock"
   },
   {
     "artist": "Тестовая группа «Орбита»",
@@ -36,7 +37,8 @@
     "purchaseDate": null,
     "purchaseStore": null,
     "purchasePrice": null,
-    "note": "Вымышленные тестовые данные. Второе из двух разных изданий"
+    "note": "Вымышленные тестовые данные. Второе из двух разных изданий",
+    "additionalGenre": "Progressive Rock"
   },
   {
     "artist": "Тестовый ансамбль «Пульс»",

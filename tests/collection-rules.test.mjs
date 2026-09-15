@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalize, sameAlbum, isPotentialDuplicate, checkAddition, genresAreDistinct, matchesGenre } from '../src/collection-rules.mjs';
+import { normalize, sameAlbum, isPotentialDuplicate, checkAddition, genresAreDistinct, matchesGenre, searchCollection, validateSearchCriteria } from '../src/collection-rules.mjs';
 
 const release = Object.freeze({ artist: 'Example Band', album: 'First Album', label: 'Label A', recordYear: 2000, editionType: 'Оригинал', genre: 'Rock', additionalGenre: 'Jazz' });
 
@@ -133,4 +133,71 @@ test('different artists are not potential duplicates even with missing edition a
   assert.equal(sameAlbum(release, other), false);
   assert.equal(isPotentialDuplicate(release, other), false);
   assert.equal(isPotentialDuplicate(other, release), false);
+});
+
+const searchRecords = Object.freeze([
+  Object.freeze({...release, albumYear: 2000}),
+  Object.freeze({...release, albumYear: '2000', recordYear: 2024}),
+  Object.freeze({...release, artist: 'Other Band', album: 'Second Album', albumYear: '2020', genre: null, additionalGenre: undefined})
+]);
+
+test('search combines all four criteria with AND and searches additional genre', () => {
+  const criteria = {artist: 'example', album: 'first', albumYear: '2000', genre: 'az'};
+  assert.deepEqual(searchCollection(searchRecords, criteria), searchRecords.slice(0, 2));
+  for (const [field, value] of [['artist', 'Other'], ['album', 'Second'], ['albumYear', '2020'], ['genre', 'Classical']]) {
+    assert.deepEqual(searchCollection(searchRecords, {...criteria, [field]: value}), []);
+  }
+});
+
+test('each search criterion works independently', () => {
+  for (const criteria of [{artist: ' example BAND '}, {album: ' FIRST  Album '}, {genre: ' rock '}, {genre: 'jazz'}]) {
+    assert.deepEqual(searchCollection(searchRecords, criteria), searchRecords.slice(0, 2));
+  }
+  assert.deepEqual(searchCollection(searchRecords, {albumYear: '2000'}), searchRecords.slice(0, 2));
+});
+
+test('automatic search includes exact and partial matches without ranking', () => {
+  for (const field of ['artist', 'album', 'genre']) {
+    const records = [{[field]: 'Art Rock'}, {[field]: 'Rock'}, {[field]: 'Rock Music'}];
+    assert.deepEqual(searchCollection(records, {[field]: ' ROCK '}), records);
+  }
+  const records = [{genre: 'Jazz', additionalGenre: 'Art Rock'}, {genre: 'Rock'}];
+  assert.deepEqual(searchCollection(records, {genre: 'Rock'}), records);
+});
+
+test('empty criteria return every row without requiring a mode', () => {
+  for (const value of ['', '   ', null, undefined]) {
+    assert.deepEqual(searchCollection(searchRecords, {artist: value, album: value, albumYear: value, genre: value}), searchRecords);
+  }
+  assert.deepEqual(searchCollection(searchRecords), searchRecords);
+  assert.deepEqual(searchCollection([], {}), []);
+});
+
+test('year is exact and rejects invalid criteria even for empty records', () => {
+  assert.deepEqual(searchCollection(searchRecords, {albumYear: ' 2000 '}), searchRecords.slice(0, 2));
+  for (const albumYear of ['20', '200', '20000', '2000-2020', '20xx', '2e03', '2000.0']) {
+    assert.throws(() => searchCollection([], {albumYear}), /YYYY/);
+  }
+});
+
+test('text search needs no mode and validates an empty collection', () => {
+  for (const field of ['artist', 'album', 'genre']) {
+    assert.deepEqual(searchCollection([], {[field]: 'Rock'}), []);
+  }
+  assert.deepEqual(validateSearchCriteria({artist: '  BAND '}), {artist: 'band', album: '', genre: '', albumYear: ''});
+});
+
+test('search skips empty criteria but does not match missing fields to nonempty text', () => {
+  assert.deepEqual(searchCollection(searchRecords, {artist: 'Other Band', genre: '   '}), [searchRecords[2]]);
+  assert.deepEqual(searchCollection([{}], {artist: 'Band'}), []);
+  assert.deepEqual(searchCollection([{}], {album: 'Album'}), []);
+  assert.deepEqual(searchCollection([{}], {genre: 'Jazz'}), []);
+});
+
+test('search preserves order, editions and inputs', () => {
+  const criteria = Object.freeze({genre: ' ROCK '});
+  const before = JSON.stringify(searchRecords);
+  assert.deepEqual(searchCollection(searchRecords, criteria), searchRecords.slice(0, 2));
+  assert.equal(JSON.stringify(searchRecords), before);
+  assert.equal(criteria.genre, ' ROCK ');
 });

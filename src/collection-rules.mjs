@@ -36,8 +36,28 @@ export function matchesGenre(record, value, mode) {
   const expected = normalize(value);
   if (expected === '') return true;
   if (!['exact', 'contains'].includes(mode)) throw new Error('Explicit matching mode required');
-  return [record.genre, record.additionalGenre].some(genre => {
-    const actual = normalize(genre);
-    return mode === 'exact' ? actual === expected : actual.includes(expected);
-  });
+  return [record.genre, record.additionalGenre].some(genre => matchesText(genre, expected, mode));
+}
+
+function matchesText(value, expected, mode) {
+  const actual = normalize(value);
+  return mode === 'exact' ? actual === expected : actual.includes(expected);
+}
+
+// Validate once, before reading records or applying short-circuit comparisons.
+export function validateSearchCriteria(criteria = {}) {
+  const values = Object.fromEntries(['artist', 'album', 'albumYear', 'genre']
+    .map(field => [field, normalize(criteria[field])]));
+  if (values.albumYear && !/^[0-9]{4}$/.test(values.albumYear)) {
+    throw new Error('Укажите год альбома в формате YYYY (четыре цифры).');
+  }
+  return values;
+}
+
+export function searchCollection(records, criteria = {}) {
+  const values = validateSearchCriteria(criteria);
+  return records.filter(record =>
+    ['artist', 'album'].every(field => !values[field] || matchesText(record[field], values[field], 'contains')) &&
+    (!values.albumYear || normalize(record.albumYear) === values.albumYear) &&
+    matchesGenre(record, values.genre, 'contains'));
 }

@@ -33,8 +33,9 @@ export function genresAreDistinct(record) {
 }
 
 export function matchesGenre(record, value, mode) {
-  if (!['exact', 'contains'].includes(mode)) throw new Error('Explicit matching mode required');
   const expected = normalize(value);
+  if (expected === '') return true;
+  if (!['exact', 'contains'].includes(mode)) throw new Error('Explicit matching mode required');
   return [record.genre, record.additionalGenre].some(genre => {
     const actual = normalize(genre);
     return mode === 'exact' ? actual === expected : actual.includes(expected);

@@ -62,3 +62,75 @@ test('comparison does not modify records or lose duplicate rows', () => {
   matchesGenre(release, 'Jazz', 'exact');
   assert.equal(JSON.stringify(records), before);
 });
+
+test('normalize handles missing values, case and surrounding or repeated spaces', () => {
+  for (const value of [null, undefined, '', '   ']) {
+    assert.equal(normalize(value), '');
+  }
+  assert.equal(normalize('RoCK'), 'rock');
+  assert.equal(normalize('  rock  '), 'rock');
+  assert.equal(normalize('Art   Rock'), 'art rock');
+});
+
+test('empty genre criteria disable the filter regardless of genres or mode', () => {
+  const records = [release, {genre: 'Rock'}, {additionalGenre: 'Jazz'},
+    {}, {genre: null, additionalGenre: undefined}, {genre: '', additionalGenre: '   '}];
+  for (const value of ['', '   ', null, undefined]) {
+    for (const record of records) {
+      assert.equal(matchesGenre(record, value), true);
+      for (const mode of ['exact', 'contains', 'unknown', null]) {
+        assert.equal(matchesGenre(record, value, mode), true);
+      }
+    }
+  }
+});
+
+test('primary genre supports exact and contains searches', () => {
+  assert.equal(matchesGenre(release, ' ROCK ', 'exact'), true);
+  assert.equal(matchesGenre(release, 'OC', 'contains'), true);
+  assert.equal(matchesGenre(release, 'oc', 'exact'), false);
+});
+
+test('additional genre is searchable without a primary genre', () => {
+  const record = {additionalGenre: 'Jazz'};
+  assert.equal(matchesGenre(record, ' JAZZ ', 'exact'), true);
+  assert.equal(matchesGenre(record, 'AZ', 'contains'), true);
+});
+
+test('nonempty criteria do not match absent genres', () => {
+  for (const record of [{}, {genre: null, additionalGenre: undefined},
+    {genre: '', additionalGenre: '   '}]) {
+    for (const mode of ['exact', 'contains']) {
+      assert.equal(matchesGenre(record, 'Rock', mode), false);
+    }
+  }
+});
+
+test('nonempty genre criteria require a valid explicit mode', () => {
+  for (const mode of [undefined, null, '', 'unknown']) {
+    assert.throws(() => matchesGenre(release, 'Rock', mode), /Explicit matching mode required/);
+  }
+});
+
+test('additional genre accepts missing values but rejects normalized equality', () => {
+  for (const additionalGenre of [undefined, '', '   ']) {
+    assert.equal(genresAreDistinct({...release, additionalGenre}), true);
+  }
+  assert.equal(genresAreDistinct({genre: ' Art   ROCK ', additionalGenre: 'art rock'}), false);
+});
+
+test('missing edition attributes cannot prove a different edition on either side', () => {
+  for (const value of [undefined, null, '', '   ']) {
+    const incomplete = {...release, label: value, recordYear: value, editionType: value};
+    assert.equal(isPotentialDuplicate(release, incomplete), true);
+    assert.equal(isPotentialDuplicate(incomplete, release), true);
+    assert.equal(isPotentialDuplicate(incomplete, incomplete), true);
+  }
+});
+
+test('different artists are not potential duplicates even with missing edition attributes', () => {
+  const other = {artist: 'Other Band', album: release.album};
+  assert.equal(sameAlbum(release, other), false);
+  assert.equal(isPotentialDuplicate(release, other), false);
+  assert.equal(isPotentialDuplicate(other, release), false);
+});

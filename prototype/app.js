@@ -46,8 +46,8 @@ async function showCollection(criteria = {}) {
   rows.replaceChildren();
 
   try {
-    const response = await fetch('data/collection.json', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Не удалось прочитать файл коллекции.');
+    const response = await fetch('/api/collection', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Не удалось загрузить коллекцию.');
     const records = await response.json();
     if (!Array.isArray(records) || records.some(record =>
       record === null || typeof record !== 'object' || Array.isArray(record) ||

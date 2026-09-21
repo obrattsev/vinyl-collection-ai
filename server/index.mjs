@@ -1,7 +1,8 @@
+import { createCollectionService } from './collection-service.mjs';
 import { isAbsolute } from 'node:path';
 import { access } from 'node:fs/promises';
 import { createApp } from './app.mjs';
-import { createGoogleSheetsCollection } from './google-sheets-collection.mjs';
+import { createGoogleSheetsRepository } from './google-sheets-collection.mjs';
 
 async function start() {
   const { COLLECTION_SPREADSHEET_ID: spreadsheetId, COLLECTION_SHEET_NAME: sheetName,
@@ -10,7 +11,7 @@ async function start() {
       !keyFile || !isAbsolute(keyFile) || !/^[0-9]+$/.test(portValue) ||
       Number(portValue) < 1 || Number(portValue) > 65535) throw new Error('Invalid configuration');
   await access(keyFile);
-  const server = createApp({ getCollection: createGoogleSheetsCollection({ spreadsheetId, sheetName, keyFile }) });
+  const server = createApp(createCollectionService(createGoogleSheetsRepository({ spreadsheetId, sheetName, keyFile })));
   server.on('error', () => {
     console.error('Не удалось запустить сервер. Проверьте доступность локального порта.');
     process.exitCode = 1;

@@ -1,3 +1,4 @@
+import { OperationError } from './collection-service.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { CollectionDataError, validateCollection } from '../src/collection-record.mjs';
@@ -9,6 +10,9 @@ const clientFiles = new Map([
   ['/prototype/index.html', ['../prototype/index.html', 'text/html; charset=utf-8']],
   ['/prototype/styles.css', ['../prototype/styles.css', 'text/css; charset=utf-8']],
   ['/prototype/app.js', ['../prototype/app.js', 'text/javascript; charset=utf-8']],
+  ['/prototype/input-controls.mjs', ['../prototype/input-controls.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/genres.mjs', ['../src/genres.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/collection-record.mjs', ['../src/collection-record.mjs', 'text/javascript; charset=utf-8']],
   ['/src/collection-rules.mjs', ['../src/collection-rules.mjs', 'text/javascript; charset=utf-8']]
 ]);
 
@@ -17,20 +21,31 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection }) {
+export function createApp({ getCollection, createRecord, deleteRecord }) {
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     const path = req.url.split('?')[0];
     try {
-      if (path === '/api/collection') {
-        if (req.method !== 'GET') {
-          res.setHeader('Allow', 'GET');
-          json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
-          return;
+      if (['POST', 'DELETE'].includes(req.method)) {
+        const host = req.headers.host;
+        if (!/^127\.0\.0\.1:\d+$/.test(host || '') ||
+            (req.headers.origin && req.headers.origin !== `http://${host}`) ||
+            req.headers['sec-fetch-site'] === 'cross-site') {
+          json(res, 403, { error: 'FORBIDDEN' }); return;
         }
-        json(res, 200, validateCollection(await getCollection()));
-        return;
+      }
+      if (path === '/api/collection') {
+        if (req.method === 'GET') { json(res, 200, validateCollection(await getCollection())); return; }
+        if (req.method === 'POST' && createRecord) {
+          json(res, 201, await createRecord(await readBody(req))); return;
+        }
+        res.setHeader('Allow', createRecord ? 'GET, POST' : 'GET');
+        json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return;
+      }
+      if (/^\/api\/collection\/[^/]+$/.test(path) && deleteRecord) {
+        if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
+        json(res, 200, await deleteRecord(path.slice('/api/collection/'.length), req.headers['if-match'])); return;
       }
       if ((path === '/' || path === '/prototype') && (req.method === 'GET' || req.method === 'HEAD')) {
         res.writeHead(302, { Location: '/prototype/' });
@@ -51,9 +66,22 @@ export function createApp({ getCollection }) {
       res.writeHead(200, { 'Content-Type': file[1], 'Content-Length': content.length });
       res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) {
+      if (error instanceof OperationError) { json(res, error.status, { error: error.message, ...error.details }); return; }
       const code = error instanceof CollectionDataError ? 'COLLECTION_DATA_INVALID'
         : error instanceof CollectionSourceError ? 'COLLECTION_SOURCE_UNAVAILABLE' : 'INTERNAL_ERROR';
       json(res, 500, { error: code });
     }
   });
+}
+
+async function readBody(req) {
+  if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw new OperationError(400, 'INVALID_REQUEST');
+  let size = 0; const chunks = [];
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 65536) throw new OperationError(400, 'INVALID_REQUEST');
+    chunks.push(chunk);
+  }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  catch { throw new OperationError(400, 'INVALID_REQUEST'); }
 }

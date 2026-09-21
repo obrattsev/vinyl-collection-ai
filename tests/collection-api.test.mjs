@@ -71,7 +71,10 @@ test('only the explicit client files are served with correct MIME types', async 
     ['/prototype/index.html', 'text/html', 'Моя коллекция'],
     ['/prototype/app.js', 'text/javascript', "fetch('/api/collection'"],
     ['/prototype/styles.css', 'text/css', 'overflow-x: auto'],
-    ['/src/collection-rules.mjs', 'text/javascript', 'searchCollection']
+    ['/src/collection-rules.mjs', 'text/javascript', 'searchCollection'],
+    ['/src/collection-record.mjs', 'text/javascript', 'validateDraft'],
+    ['/src/genres.mjs', 'text/javascript', 'GENRES'],
+    ['/prototype/input-controls.mjs', 'text/javascript', 'bindInputConstraint']
   ]) {
     const response = await fetch(url + path);
     assert.equal(response.status, 200);
@@ -87,7 +90,7 @@ test('only the explicit client files are served with correct MIME types', async 
 test('secrets, server files, local JSON and encoded/traversal paths are not served', async t => {
   const url = await start(t);
   for (const path of ['/.env', '/.env.example', '/credentials/key.json', '/server/index.mjs',
-    '/server/google-sheets-collection.mjs', '/src/collection-record.mjs', '/package.json', '/.git/config',
+    '/server/google-sheets-collection.mjs', '/server/collection-service.mjs', '/package.json', '/.git/config',
     '/README.md', '/prototype/data/collection.json', '/node_modules/google-auth-library/package.json',
     '/prototype/../.env', '/prototype/%2e%2e/.env', '/%2eenv', '/prototype/..%2f.env',
     '/prototype/%2e%2e%2fserver/index.mjs', '/prototype/..\\.env']) {

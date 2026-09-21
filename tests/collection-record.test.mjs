@@ -104,3 +104,14 @@ test('full API records retain IDs, editions, AND and both genres in existing sea
   assert.deepEqual(searchCollection(records), records);
   assert.equal(JSON.stringify(records), before);
 });
+
+test('negative prices are rejected by the model, while zero and kopecks remain valid', () => {
+  for (const purchasePrice of [-1, -0.01]) assert.throws(() => validateCollection([{ ...record, purchasePrice }]), CollectionDataError);
+  for (const purchasePrice of [0, 0.01, 1234.56]) assert.doesNotThrow(() => validateCollection([{ ...record, purchasePrice }]));
+});
+
+test('legacy genres outside the manual catalog remain readable and searchable without rewriting', () => {
+  const legacy = Object.freeze({ ...record, genre: 'Art Rock', additionalGenre: 'Fusion' });
+  assert.equal(validateCollection([legacy])[0], legacy);
+  assert.deepEqual(searchCollection([legacy], { genre: 'fusion' }), [legacy]);
+});

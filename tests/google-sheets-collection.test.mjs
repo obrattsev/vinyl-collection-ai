@@ -105,3 +105,80 @@ test('authentication and Google request errors are sanitized and distinct from i
   const auth = {getClient: async () => ({request: async () => ({data:{}})})};
   await assert.rejects(createGoogleSheetsCollection({spreadsheetId:'test', sheetName:'Collection', auth})(), CollectionDataError);
 });
+
+test('writes append typed cells after data, map reordered headers and delete only the UUID row', async () => {
+  const { createGoogleSheetsRepository } = await import('../server/google-sheets-collection.mjs');
+  const { createCollectionService } = await import('../server/collection-service.mjs');
+  const { recordRevision } = await import('../src/collection-record.mjs');
+  const reversedHeaders = [...headers].reverse().concat('Other');
+  const originalRow = [...row].reverse().concat('preserve');
+  const values = [reversedHeaders, [], originalRow];
+  const mutations = [];
+  const auth = { getClient: async () => ({ request: async options => {
+    assert.equal(options.retry, false);
+    if (options.method === 'GET') {
+      if (options.url.includes('/values/')) return { data: { values: structuredClone(values) } };
+      return { data: { sheets: [{ properties: { title: 'Collection', sheetId: 27 } }] } };
+    }
+    assert.equal(options.method, 'POST'); assert.ok(options.url.endsWith(':batchUpdate'));
+    const mutation = options.data.requests[0]; mutations.push(mutation);
+    if (mutation.appendCells) {
+      const append = mutation.appendCells;
+      assert.equal(append.sheetId, 27); assert.equal(append.fields, 'userEnteredValue');
+      assert.equal(append.rows.length, 1);
+      const cells = append.rows[0].values;
+      assert.ok(cells.every(cell => !cell.userEnteredValue || !Object.hasOwn(cell.userEnteredValue, 'formulaValue')));
+      values.push(cells.map(cell => cell.userEnteredValue?.stringValue ?? cell.userEnteredValue?.numberValue ?? ''));
+    } else {
+      const range = mutation.deleteDimension.range;
+      assert.deepEqual(range, { sheetId: 27, dimension: 'ROWS', startIndex: 3, endIndex: 4 });
+      values.splice(range.startIndex, 1);
+    }
+    return { data: {} };
+  } }) };
+  const service = createCollectionService(createGoogleSheetsRepository({ spreadsheetId: 'test', sheetName: 'Collection', auth }));
+  const { id, ...input } = record;
+  input.album = '=literal title'; input.purchasePrice = 0; input.note = null;
+  const created = await service.createRecord(input);
+  assert.deepEqual(created, { ...input, id: created.id });
+  assert.deepEqual(values[2], originalRow);
+  assert.deepEqual(await service.deleteRecord(created.id, await recordRevision(created)), created);
+  assert.deepEqual(values, [reversedHeaders, [], originalRow]);
+  assert.equal(mutations.length, 2);
+});
+
+test('adapter resolves moved UUID immediately before deletion and rejects a changed or missing target', async () => {
+  const { createGoogleSheetsRepository } = await import('../server/google-sheets-collection.mjs');
+  const { recordRevision } = await import('../src/collection-record.mjs');
+  let values = [headers, [], [], row]; let mutation;
+  const auth = { getClient: async () => ({ request: async options => {
+    if (options.url.includes('/values/')) return { data: { values } };
+    if (options.method === 'GET') return { data: { sheets: [{ properties: { title: 'Collection', sheetId: 0 } }] } };
+    mutation = options.data; return { data: {} };
+  } }) };
+  const repo = createGoogleSheetsRepository({ spreadsheetId: 'test', sheetName: 'Collection', auth });
+  const revision = await recordRevision(record);
+  await repo.deleteRecord(record, revision);
+  assert.equal(mutation.requests[0].deleteDimension.range.startIndex, 3);
+  mutation = null;
+  values = [headers, row.map((v, i) => i === 9 ? 'changed externally' : v)];
+  await assert.rejects(repo.deleteRecord(record, revision), error => error.status === 409 && error.message === 'RECORD_CHANGED');
+  values = [headers];
+  await assert.rejects(repo.deleteRecord(record, revision), error => error.status === 404);
+  assert.equal(mutation, null);
+});
+
+test('adapter never writes when sheet metadata or existing data are invalid', async () => {
+  const { createGoogleSheetsRepository } = await import('../server/google-sheets-collection.mjs');
+  for (const metadata of [true, false]) {
+    let writes = 0;
+    const auth = { getClient: async () => ({ request: async options => {
+      if (options.method !== 'GET') writes++;
+      if (options.url.includes('/values/')) return { data: { values: [headers, ['bad']] } };
+      return { data: { sheets: metadata ? [{ properties: { title: 'Collection', sheetId: 1 } }] : [] } };
+    } }) };
+    const repo = createGoogleSheetsRepository({ spreadsheetId: 'test', sheetName: 'Collection', auth });
+    await assert.rejects(repo.appendRecord(record), metadata ? CollectionDataError : CollectionSourceError);
+    assert.equal(writes, 0);
+  }
+});

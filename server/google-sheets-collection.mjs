@@ -1,5 +1,6 @@
+import { OperationError } from './collection-service.mjs';
 import { GoogleAuth } from 'google-auth-library';
-import { CollectionDataError, validateCollection } from '../src/collection-record.mjs';
+import { CollectionDataError, validateCollection, recordRevision } from '../src/collection-record.mjs';
 
 export const SHEETS_COLUMNS = Object.freeze({
   'ID': 'id', 'Исполнитель': 'artist', 'Альбом': 'album', 'Жанр': 'genre',
@@ -53,20 +54,56 @@ export function mapSheetValues(values) {
 
 export function createGoogleSheetsCollection({ spreadsheetId, sheetName, keyFile,
   auth = new GoogleAuth({ keyFile, scopes: [READONLY_SCOPE] }) }) {
+  return createGoogleSheetsRepository({ spreadsheetId, sheetName, keyFile, auth }).getCollection;
+}
+
+// Writes use the same mapping/validation and never interpret user text as formulas.
+export function createGoogleSheetsRepository({ spreadsheetId, sheetName, keyFile,
+  auth = new GoogleAuth({ keyFile, scopes: ['https://www.googleapis.com/auth/spreadsheets'] }) }) {
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}`;
   const range = `'${sheetName.replaceAll("'", "''")}'`;
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${encodeURIComponent(range)}`;
-  return async function getCollection() {
-    let response;
-    try {
-      const client = await auth.getClient();
-      response = await client.request({
-        url, method: 'GET', timeout: 10000, retry: false,
-        params: { majorDimension: 'ROWS', valueRenderOption: 'UNFORMATTED_VALUE', dateTimeRenderOption: 'SERIAL_NUMBER' }
+  async function request(options) {
+    try { return await (await auth.getClient()).request({ timeout: 10000, retry: false, ...options }); }
+    catch { throw new CollectionSourceError(); }
+  }
+  async function read() {
+    const response = await request({ url: `${base}/values/${encodeURIComponent(range)}`, method: 'GET',
+      params: { majorDimension: 'ROWS', valueRenderOption: 'UNFORMATTED_VALUE', dateTimeRenderOption: 'SERIAL_NUMBER' } });
+    const values = response?.data?.values;
+    return { values, records: mapSheetValues(values) };
+  }
+  async function sheetId() {
+    const response = await request({ url: base, method: 'GET', params: { fields: 'sheets.properties' } });
+    const sheet = response.data?.sheets?.find(item => item.properties.title === sheetName);
+    if (!Number.isInteger(sheet?.properties.sheetId)) throw new CollectionSourceError();
+    return sheet.properties.sheetId;
+  }
+  return {
+    getCollection: async () => (await read()).records,
+    appendRecord: async record => {
+      const targetId = await sheetId();
+      const { values } = await read();
+      const cells = values[0].map(header => {
+        const value = Object.hasOwn(SHEETS_COLUMNS, header) ? record[SHEETS_COLUMNS[header]] : null;
+        return value == null ? {} : { userEnteredValue:
+          typeof value === 'number' ? { numberValue: value } : { stringValue: value } };
       });
-    } catch {
-      // Google exceptions can contain request headers/tokens. Never propagate them.
-      throw new CollectionSourceError();
+      // appendCells uses the last data row, including data below blank rows, without overwriting rows.
+      await request({ url: `${base}:batchUpdate`, method: 'POST', data: { requests: [{ appendCells: {
+        sheetId: targetId, rows: [{ values: cells }], fields: 'userEnteredValue'
+      } }] } });
+    },
+    deleteRecord: async (record, expected) => {
+      const targetId = await sheetId();
+      const { values, records } = await read();
+      const current = records.find(r => r.id.toLowerCase() === record.id.toLowerCase());
+      if (!current) throw new OperationError(404, 'NOT_FOUND');
+      if (await recordRevision(current) !== expected) throw new OperationError(409, 'RECORD_CHANGED', { record: current });
+      const column = values[0].indexOf('ID');
+      const index = values.findIndex((row, i) => i > 0 && typeof row[column] === 'string' && row[column].toLowerCase() === record.id.toLowerCase());
+      await request({ url: `${base}:batchUpdate`, method: 'POST', data: { requests: [{ deleteDimension: {
+        range: { sheetId: targetId, dimension: 'ROWS', startIndex: index, endIndex: index + 1 }
+      } }] } });
     }
-    return mapSheetValues(response?.data?.values);
   };
 }

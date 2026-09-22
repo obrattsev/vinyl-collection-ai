@@ -104,3 +104,19 @@ test('both optional genre selectors use exactly the shared closed catalog', asyn
     assert.ok(!input.required);
   }
 });
+
+test('both searches bind the four-digit year constraint, share the genre catalog and clear without fetching', async () => {
+  for (const wishlist of [false,true]) {
+    let calls = 0;
+    const ui = await prototypeUI(async () => { calls++; return response([]); }, {wishlist});
+    const year = ui.searchInput('albumYear');
+    year.value = '1979'; await year.fire('input');
+    for (const invalid of ['19790','19x9','1e03']) { year.value = invalid; await year.fire('input'); assert.equal(year.value,'1979'); }
+    year.setSelectionRange(0,4);
+    await year.fire('paste',{clipboardData:{getData:()=> '20001'}}); assert.equal(year.value,'1979');
+    await year.fire('paste',{clipboardData:{getData:()=> '1986'}}); assert.equal(year.value,'1986');
+    assert.deepEqual(ui.get('#search-genre').children.map(option => option.value), ['',...GENRES]);
+    const before = calls; ui.get('#search-form').reset(); assert.equal(year.value,''); assert.equal(calls,before);
+    year.value = 'bad'; await year.fire('input'); assert.equal(year.value,'');
+  }
+});

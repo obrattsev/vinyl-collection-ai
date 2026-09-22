@@ -12,7 +12,7 @@ test('comparison ignores only case and whitespace, preserving punctuation and wo
   assert.equal(sameAlbum(release, {...release, artist: ' example BAND  '}), true);
 });
 
-test('missing edition evidence blocks a possible duplicate', () => {
+test('missing edition evidence identifies a possible duplicate for warning', () => {
   assert.equal(isPotentialDuplicate(release, {artist: 'Example Band', album: 'First Album'}), true);
   assert.equal(isPotentialDuplicate(release, {...release, label: '', recordYear: null}), true);
   assert.equal(isPotentialDuplicate(release, {...release, album: 'Other Album'}), false);

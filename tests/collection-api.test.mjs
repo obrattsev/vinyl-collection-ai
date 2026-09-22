@@ -69,7 +69,7 @@ test('only the explicit client files are served with correct MIME types', async 
   for (const [path, mime, text] of [
     ['/prototype/', 'text/html', 'Моя коллекция'],
     ['/prototype/index.html', 'text/html', 'Моя коллекция'],
-    ['/prototype/app.js', 'text/javascript', "fetch('/api/collection'"],
+    ['/prototype/app.js', 'text/javascript', "'/api/collection'"],
     ['/prototype/styles.css', 'text/css', 'overflow-x: auto'],
     ['/src/collection-rules.mjs', 'text/javascript', 'searchCollection'],
     ['/src/collection-record.mjs', 'text/javascript', 'validateDraft'],

@@ -1,12 +1,14 @@
 // Minimal DOM harness for actual app.js handlers. Layout/input behavior is checked in a browser.
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
+import * as wishlistModel from '../../src/wishlist-record.mjs';
+import * as wishlistRules from '../../src/wishlist-rules.mjs';
 import * as model from '../../src/collection-record.mjs';
 import * as rules from '../../src/collection-rules.mjs';
 import { GENRES } from '../../src/genres.mjs';
 import * as inputs from '../../prototype/input-controls.mjs';
 
-export async function prototypeUI(fetch) {
+export async function prototypeUI(fetch, { wishlist = false } = {}) {
   const elements = new Map();
   const namedInputs = new Map();
   class Element {
@@ -19,7 +21,7 @@ export async function prototypeUI(fetch) {
     get id() { return this._id; }
     set name(value) { this._name = value; namedInputs.set(value, this); }
     get name() { return this._name; }
-    get form() { return elements.get('#record-form'); }
+    get form() { return elements.get(this.id?.startsWith('search-') ? '#search-form' : '#record-form'); }
     addEventListener(type, fn) { (this.handlers[type] ??= []).push(fn); }
     async fire(type, properties = {}) {
       for (const fn of this.handlers[type] ?? []) await fn({ type, target: this, preventDefault() {}, ...properties });
@@ -29,25 +31,31 @@ export async function prototypeUI(fetch) {
     replaceChildren(...children) { this.children = children; }
     setAttribute(name, value) { this.attributes[name] = value; }
     setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; }
-    querySelectorAll() { return []; }
+    querySelectorAll(selector) { return this.children.flatMap(child => [...(selector === 'button' && child.tagName === 'BUTTON' ? [child] : []), ...child.querySelectorAll(selector)]); }
     focus() { this.focused = true; }
-    reset() { for (const input of namedInputs.values()) input.value = ''; this.dispatchEvent(new Event('reset')); }
+    reset() { for (const input of [...namedInputs.values(), ...searchInputs.values()]) if (input.form === this) input.value = ''; this.dispatchEvent(new Event('reset')); }
     showModal() { this.open = true; }
     close() { this.open = false; this.dispatchEvent(new Event('close')); }
   }
   const document = {
+    body: { dataset: { section: wishlist ? "wishlist" : "collection" } },
     querySelector(selector) { if (!elements.has(selector)) elements.set(selector, new Element()); return elements.get(selector); },
     createElement: tag => new Element(tag), createDocumentFragment: () => new Element()
   };
-  const context = vm.createContext({ document, fetch, Event,
-    FormData: class { constructor() { return [...namedInputs].map(([name, input]) => [name, input.value]); } },
-    ...model, ...rules, ...inputs, GENRES });
+  const searchInputs = new Map(['artist', 'album', 'albumYear', 'genre'].map(name => {
+    const input = document.querySelector(name === 'albumYear' ? '#search-year' : `#search-${name}`);
+    input.id = name === 'albumYear' ? 'search-year' : `search-${name}`; return [name, input];
+  }));
+  const context = vm.createContext({ document, fetch, Event, URL,
+    FormData: class { constructor(form) { return [...(form === document.querySelector('#search-form') ? searchInputs : namedInputs)].map(([name, input]) => [name, input.value]); } },
+    ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
   const source = (await readFile(new URL('../../prototype/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   vm.runInContext(source, context);
   return {
     get: selector => document.querySelector(selector),
     run: script => vm.runInContext(script, context),
     fill: values => { for (const [field, value] of Object.entries(values)) namedInputs.get(field).value = value == null ? '' : String(value); },
+    searchInput: field => searchInputs.get(field),
     input: field => namedInputs.get(field)
   };
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatDateInput, formatPriceInput, bindInputConstraint } from '../prototype/input-controls.mjs';
+import { formatDateInput, formatPriceInput, formatYearInput, bindInputConstraint } from '../prototype/input-controls.mjs';
 
 class Input extends EventTarget {
   value = '';
@@ -79,4 +79,19 @@ test('date separators do not trap Backspace or Delete; caret edits keep the mask
   input.setSelectionRange(4, 4);
   input.send('beforeinput', { inputType: 'deleteContentForward', data: null });
   assert.equal(input.value, '2026-92-1');
+});
+
+test('year typing and paste accept only four ASCII digits, including selection replacement', () => {
+  const input = new Input(); bindInputConstraint(input, formatYearInput);
+  for (const digit of '1979') input.type(digit);
+  for (const invalid of ['0', 'x', '.', '-', 'e']) input.type(invalid);
+  assert.equal(input.value, '1979');
+  input.setSelectionRange(0, 4);
+  for (const invalid of ['19860', '19x6', ' 1986', '１９８６', '1e03']) input.paste(invalid);
+  assert.equal(input.value, '1979');
+  input.paste('1986'); assert.equal(input.value, '1986');
+  input.setSelectionRange(2, 4); input.paste('99'); assert.equal(input.value, '1999');
+  input.value = '19999'; input.send('input'); assert.equal(input.value, '1999');
+  input.form.dispatchEvent(new Event('reset')); input.value = 'bad'; input.send('input'); assert.equal(input.value, '');
+  input.setSelectionRange(0, 0); input.type('2'); assert.equal(input.value, '2');
 });

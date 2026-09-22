@@ -16,15 +16,24 @@ export function isPotentialDuplicate(left, right) {
   });
 }
 
+// Unknown edition attributes are not evidence of equality.
+export function isConfirmedDuplicate(left, right) {
+  return sameAlbum(left, right) && ['label', 'recordYear', 'editionType'].every(field => {
+    const value = normalize(left[field]);
+    return value !== '' && value === normalize(right[field]);
+  });
+}
+
 export function checkAddition(candidate, target, collection, wishlist = []) {
   if (!['collection', 'wishlist'].includes(target)) throw new Error('Unknown target');
   const ownRecords = target === 'collection' ? collection : wishlist;
-  const duplicates = ownRecords.filter(record => isPotentialDuplicate(candidate, record));
+  const duplicates = ownRecords.filter(record => isConfirmedDuplicate(candidate, record));
+  const warnings = ownRecords.filter(record => isPotentialDuplicate(candidate, record) && !isConfirmedDuplicate(candidate, record));
   const ownedAlbums = target === 'wishlist'
     ? collection.filter(record => sameAlbum(candidate, record)) : [];
-  const ownedDuplicates = ownedAlbums.filter(record => isPotentialDuplicate(candidate, record));
+  const ownedDuplicates = ownedAlbums.filter(record => isConfirmedDuplicate(candidate, record));
   return { blocked: duplicates.length > 0 || ownedDuplicates.length > 0,
-    duplicates, ownedAlbums, ownedDuplicates };
+    duplicates, warnings, ownedAlbums, ownedDuplicates };
 }
 
 export function genresAreDistinct(record) {

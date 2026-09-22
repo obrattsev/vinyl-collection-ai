@@ -48,9 +48,9 @@ test('invalid POST makes no read or write, including client-assigned UUID', asyn
   assert.deepEqual(m.calls, { append: 0, delete: 0, read: 0 });
 });
 
-test('POST blocks normalized duplicates and insufficient evidence even after user confirmation', async () => {
+test('POST blocks confirmed normalized edition duplicates even after user confirmation', async () => {
   const m = memory(); const service = createCollectionService(m.repository);
-  for (const input of [baseDraft, { ...baseDraft, artist: ` ${record.artist.toUpperCase()} `, label: null, recordYear: null, editionType: null }]) {
+  for (const input of [baseDraft, { ...baseDraft, artist: ` ${record.artist.toUpperCase()} ` }]) {
     await assert.rejects(service.createRecord(input), error => {
       assert.ok(fails(409, 'POTENTIAL_DUPLICATE')(error));
       assert.deepEqual(error.details.records, [record]); return true;

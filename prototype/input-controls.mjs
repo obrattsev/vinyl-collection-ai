@@ -1,3 +1,5 @@
+export const formatYearInput = value => /^[0-9]{0,4}$/.test(value) ? value : null;
+
 // Input constraints only; calendar validity and record rules remain in the model.
 export function formatDateInput(value) {
   if (!/^[0-9-]*$/.test(value)) return null;

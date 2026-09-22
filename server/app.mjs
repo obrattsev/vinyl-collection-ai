@@ -1,4 +1,6 @@
 import { OperationError } from './collection-service.mjs';
+import { WishlistDataError, validateWishlist } from '../src/wishlist-record.mjs';
+import { WishlistSourceError } from './google-sheets-wishlist.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { CollectionDataError, validateCollection } from '../src/collection-record.mjs';
@@ -6,6 +8,10 @@ import { CollectionSourceError } from './google-sheets-collection.mjs';
 
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
+  ['/prototype/wishlist.html', ['../prototype/wishlist.html', 'text/html; charset=utf-8']],
+  ['/src/base-record.mjs', ['../src/base-record.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/wishlist-record.mjs', ['../src/wishlist-record.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/wishlist-rules.mjs', ['../src/wishlist-rules.mjs', 'text/javascript; charset=utf-8']],
   ['/prototype/', ['../prototype/index.html', 'text/html; charset=utf-8']],
   ['/prototype/index.html', ['../prototype/index.html', 'text/html; charset=utf-8']],
   ['/prototype/styles.css', ['../prototype/styles.css', 'text/css; charset=utf-8']],
@@ -21,7 +27,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord }) {
+export function createApp({ getCollection, createRecord, deleteRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, transferRecord }) {
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -34,6 +40,25 @@ export function createApp({ getCollection, createRecord, deleteRecord }) {
             req.headers['sec-fetch-site'] === 'cross-site') {
           json(res, 403, { error: 'FORBIDDEN' }); return;
         }
+      }
+      if (path === '/api/wishlist' || path.startsWith('/api/wishlist/')) {
+        if (!getWishlist) { json(res, 503, { error: 'WISHLIST_NOT_CONFIGURED' }); return; }
+        if (path === '/api/wishlist') {
+          if (req.method === 'GET') { json(res, 200, validateWishlist(await getWishlist())); return; }
+          if (req.method === 'POST') { json(res, 201, await createWishlistRecord(await readBody(req))); return; }
+          res.setHeader('Allow', 'GET, POST'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return;
+        }
+        const transfer = path.match(/^\/api\/wishlist\/([^/]+)\/transfer$/);
+        if (transfer) {
+          if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
+          json(res, 200, await transferRecord(transfer[1], req.headers['if-match'], await readBody(req))); return;
+        }
+        const target = path.match(/^\/api\/wishlist\/([^/]+)$/);
+        if (target) {
+          if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
+          json(res, 200, await deleteWishlistRecord(target[1], req.headers['if-match'])); return;
+        }
+        json(res, 404, { error: 'NOT_FOUND' }); return;
       }
       if (path === '/api/collection') {
         if (req.method === 'GET') { json(res, 200, validateCollection(await getCollection())); return; }
@@ -67,7 +92,9 @@ export function createApp({ getCollection, createRecord, deleteRecord }) {
       res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) {
       if (error instanceof OperationError) { json(res, error.status, { error: error.message, ...error.details }); return; }
-      const code = error instanceof CollectionDataError ? 'COLLECTION_DATA_INVALID'
+      const code = error instanceof WishlistDataError ? 'WISHLIST_DATA_INVALID'
+        : error instanceof WishlistSourceError ? 'WISHLIST_SOURCE_UNAVAILABLE'
+        : error instanceof CollectionDataError ? 'COLLECTION_DATA_INVALID'
         : error instanceof CollectionSourceError ? 'COLLECTION_SOURCE_UNAVAILABLE' : 'INTERNAL_ERROR';
       json(res, 500, { error: code });
     }

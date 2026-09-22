@@ -97,7 +97,7 @@ test('unsupported methods, invalid targets and unknown paths never write', async
   assert.equal((await fetch(`${app.url}/api/collection/${id}`)).status, 405);
   assert.equal((await fetch(`${app.url}/api/collection/bad`, { method: 'DELETE' })).status, 400);
   assert.equal((await fetch(`${app.url}/api/collection/${id}`, { method: 'DELETE' })).status, 400);
-  assert.equal((await fetch(`${app.url}/api/wishlist`, { method: 'POST' })).status, 404);
+  assert.equal((await fetch(`${app.url}/api/wishlist`, { method: 'POST' })).status, 503);
   assert.equal((await fetch(`${app.url}/api/collection/${id}/other`, { method: 'DELETE' })).status, 404);
   assert.equal(app.writes, 0);
 });

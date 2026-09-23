@@ -1,3 +1,4 @@
+import { publicRecords } from '../src/public-record.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -15,14 +16,14 @@ async function start(t, getCollection = async () => [record]) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
-test('GET returns the complete model and empty collections, never fixture fallbacks', async t => {
+test('Guest GET returns the public model and empty collections, never fixture fallbacks', async t => {
   let records = [record];
   const url = await start(t, async () => records);
   const response = await fetch(`${url}/api/collection`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /application\/json/);
   assert.equal(response.headers.get('cache-control'), 'no-store');
-  assert.deepEqual(await response.json(), [record]);
+  assert.deepEqual(await response.json(), publicRecords([record]));
   records = [];
   const empty = await fetch(`${url}/api/collection`);
   assert.equal(empty.status, 200);
@@ -56,11 +57,11 @@ test('POST, DELETE and other methods cannot invoke the data source', async t => 
   const url = await start(t, async () => {called = true; return [];});
   for (const method of ['POST', 'DELETE', 'PUT', 'PATCH', 'OPTIONS']) {
     const response = await fetch(`${url}/api/collection`, {method});
-    assert.equal(response.status, 405);
-    assert.equal(response.headers.get('allow'), 'GET');
-    assert.deepEqual(await response.json(), {error:'METHOD_NOT_ALLOWED'});
+    const safe = method === 'OPTIONS';
+    assert.equal(response.status, safe ? 405 : 401);
+    assert.deepEqual(await response.json(), {error: safe ? 'METHOD_NOT_ALLOWED' : 'AUTH_REQUIRED'});
   }
-  assert.equal((await fetch(`${url}/api/collection/${record.id}`, {method:'DELETE'})).status, 404);
+  assert.equal((await fetch(`${url}/api/collection/${record.id}`, {method:'DELETE'})).status, 401);
   assert.equal(called, false);
 });
 

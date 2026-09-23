@@ -1,3 +1,4 @@
+import { PUBLIC_FIELDS, validatePublicRecords } from '../src/public-record.mjs';
 import { validateCollection } from '../src/collection-record.mjs';
 import { validateWishlist, validateWishlistDraft, wishlistFieldErrors, wishlistRevision } from '../src/wishlist-record.mjs';
 import { searchWishlist, validateWishlistCriteria } from '../src/wishlist-rules.mjs';
@@ -27,16 +28,28 @@ const status = document.querySelector('#status');
 const error = document.querySelector('#error');
 const container = document.querySelector('#table-container');
 const rows = document.querySelector('#records');
-const fields = ['artist', 'album', 'genre', 'additionalGenre', 'label', 'albumYear', 'recordYear', 'editionType', ...(isWishlist ? ['note', 'storeUrl'] : [])];
+let owner = false;
+let csrfToken = null;
+let authBusy = false;
+let authVersion = 0;
+let sessionCheckVersion = 0;
+const fields = [...PUBLIC_FIELDS];
 let loading = false;
 let loadVersion = 0;
 let needsRefresh = false;
 let needsBothRefresh = false;
 
-form.addEventListener('reset', () => {
-  criteriaError.hidden = true;
-  criteriaError.textContent = '';
-});
+function resetResults() {
+  // Invalidates in-flight reads without clearing write-recovery requirements.
+  loadVersion++;
+  loading = false;
+  button.disabled = controls.disabled = writing;
+  rows.replaceChildren(); container.hidden = true;
+  criteriaError.hidden = error.hidden = true;
+  criteriaError.textContent = error.textContent = '';
+  status.textContent = 'Здесь появятся результаты поиска.';
+}
+form.addEventListener('reset', resetResults);
 
 form.addEventListener('submit', event => {
   event.preventDefault();
@@ -50,10 +63,10 @@ form.addEventListener('submit', event => {
     criteriaError.hidden = false;
     return;
   }
-  showCollection(criteria);
+  return showCollection(criteria);
 });
 
-button.addEventListener('click', () => { if (!writing) showCollection(); });
+button.addEventListener('click', () => { if (!writing) return showCollection(); });
 
 async function showCollection(criteria = {}) {
   const version = ++loadVersion;
@@ -72,9 +85,10 @@ async function showCollection(criteria = {}) {
     if (!response.ok) { const body = await response.json(); throw new Error(body.error); }
     const records = await response.json();
     if (version !== loadVersion) return;
-    validateRecords(records);
+    if (response.headers?.get('X-Access-Role') === 'guest' && owner) { applySession({ role: 'guest' }); await showCollection(criteria); return; }
+    (owner ? validateRecords : validatePublicRecords)(records);
     const results = searchRecords(records, criteria);
-    needsRefresh = needsBothRefresh;
+    needsRefresh = owner && needsBothRefresh;
     document.querySelector('#add-record').disabled = needsRefresh;
     if (records.length === 0) {
       status.textContent = isWishlist ? 'Wish-list пуст' : 'Коллекция пуста';
@@ -84,7 +98,7 @@ async function showCollection(criteria = {}) {
       renderRecords(results);
       status.textContent = `Показано записей: ${results.length}`;
     }
-    if (needsBothRefresh) {
+    if (owner && needsBothRefresh) {
       try {
         await loadRecords('/api/collection');
       } catch {
@@ -117,11 +131,12 @@ function renderRecords(records) {
   const fragment = document.createDocumentFragment();
   for (const record of records) {
     const row = document.createElement('tr');
-    for (const field of fields) {
+    for (const field of [...fields, ...(owner && isWishlist ? ['storeUrl'] : [])]) {
       const cell = document.createElement('td');
       cell.textContent = record[field] ?? '';
       row.append(cell);
     }
+    if (!owner) { fragment.append(row); continue; }
     const action = document.createElement('td');
     const actions = document.createElement('div'); actions.className = 'row-actions';
     const remove = document.createElement('button'); remove.className = 'button-secondary';
@@ -255,9 +270,12 @@ function displayRecord(target, record, displayLabels = labels) {
   target.replaceChildren(list);
 }
 async function loadRecords(url = endpoint) {
+  const version = authVersion;
   const response = await fetch(url, {cache:'no-store'});
   if (!response.ok) throw new Error('load');
   const records = await response.json();
+  if (version !== authVersion) throw new Error('STALE_READ');
+  if (!owner || response.headers?.get('X-Access-Role') === 'guest') { applySession({ role: 'guest' }); throw new Error('AUTH_REQUIRED'); }
   (url === '/api/wishlist' ? validateWishlist : validateCollection)(records);
   return records;
 }
@@ -272,7 +290,7 @@ function editDraft() {
   confirmButton.hidden = editButton.hidden = true; previewButton.hidden = false;
 }
 document.querySelector('#add-record').addEventListener('click', async () => {
-  if (needsRefresh || writing) return;
+  if (!owner || authBusy || needsRefresh || writing) return;
   const run = ++dialogRun;
   setFormMode(); recordForm.reset(); editDraft(); recordError.textContent = ''; dialog.showModal();
   try {
@@ -299,7 +317,7 @@ dialog.addEventListener('close', () => {
   setFormMode();
 });
 recordForm.addEventListener('submit', async event => {
-  event.preventDefault(); if (writing || checking || needsRefresh) return;
+  event.preventDefault(); if (!owner || authBusy || writing || checking || needsRefresh) return;
   recordError.textContent = ''; editDraft();
   const input = readDraft();
   showFieldErrors = true;
@@ -359,14 +377,18 @@ function messageFor(code) {
 }
 async function writeRequest(url, options) {
   let response;
-  try { response = await fetch(url, options); } catch { throw {error:'RESULT_UNCONFIRMED'}; }
+  try { response = await fetch(url, { ...options, headers: { ...options.headers, 'X-CSRF-Token': csrfToken } }); } catch { throw {error:'RESULT_UNCONFIRMED'}; }
   let body;
   try { body = await response.json(); } catch { throw {error:'RESULT_UNCONFIRMED'}; }
+  if (response.status === 401 || response.status === 403) {
+    applySession({ role: 'guest' });
+    authStatus.textContent = 'Войдите снова; действие не повторялось.';
+  }
   if (!response.ok) throw body;
   return body;
 }
 confirmButton.addEventListener('click', async () => {
-  if (writing || (!draft && !transferTarget) || needsRefresh) return;
+  if (!owner || authBusy || writing || (!draft && !transferTarget) || needsRefresh) return;
   writing = true; invalidateReads(); confirmButton.disabled = editButton.disabled = true;
   const source = transferSource;
   const target = transferTarget;
@@ -408,12 +430,12 @@ const deletePreview = document.querySelector('#delete-preview');
 const deleteError = document.querySelector('#delete-error');
 const confirmDelete = document.querySelector('#confirm-delete');
 let selected = null;
-function openDelete(record) { if (needsRefresh || writing) return; selected = record; displayRecord(deletePreview, record); deleteError.textContent = ''; confirmDelete.disabled = false; deleteDialog.showModal(); }
+function openDelete(record) { if (!owner || authBusy || needsRefresh || writing) return; selected = record; displayRecord(deletePreview, record); deleteError.textContent = ''; confirmDelete.disabled = false; deleteDialog.showModal(); }
 document.querySelector('#cancel-delete').addEventListener('click', () => { if (!writing) deleteDialog.close(); });
 deleteDialog.addEventListener('cancel', event => { if (writing) event.preventDefault(); });
 deleteDialog.addEventListener('close', () => { selected = null; });
 confirmDelete.addEventListener('click', async () => {
-  if (writing || !selected || needsRefresh) return;
+  if (!owner || authBusy || writing || !selected || needsRefresh) return;
   writing = true; invalidateReads(); confirmDelete.disabled = true;
   try {
     const deleted = await writeRequest(`${endpoint}/${selected.id}`, {method:'DELETE', headers:{'If-Match':await revisionFor(selected)}});
@@ -432,7 +454,7 @@ function invalidateReads() {
   button.disabled = controls.disabled = true;
 }
 async function openTransfer(record) {
-  if (needsRefresh || writing) return;
+  if (!owner || authBusy || needsRefresh || writing) return;
   ++dialogRun; recordForm.reset(); setFormMode(record); editDraft();
   recordError.textContent = ''; dialog.showModal();
 }
@@ -462,3 +484,83 @@ async function refreshBoth() {
   document.querySelector('#add-record').disabled = true;
   return showCollection();
 }
+
+
+const loginDialog = document.querySelector('#login-dialog');
+const loginForm = document.querySelector('#login-form');
+const passwordInput = document.querySelector('#owner-password');
+const loginError = document.querySelector('#login-error');
+const authStatus = document.querySelector('#auth-status');
+const loginButton = document.querySelector('#owner-login');
+const logoutButton = document.querySelector('#owner-logout');
+
+function applySession(session) {
+  const nextOwner = session.role === 'owner' && typeof session.csrfToken === 'string';
+  const nextToken = nextOwner ? session.csrfToken : null;
+  if (owner !== nextOwner || csrfToken !== nextToken) {
+    authVersion++; dialogRun++;
+    resetResults();
+    dialog.close(); deleteDialog.close();
+    preview.replaceChildren(); deletePreview.replaceChildren();
+    document.querySelector('#transfer-source').replaceChildren();
+    for (const field of ['artist', 'album', 'label']) document.querySelector(`#suggest-${field}`).replaceChildren();
+    recordForm.reset(); draft = selected = transferSource = transferTarget = null;
+    operationStatus.textContent = recordError.textContent = deleteError.textContent = '';
+  }
+  owner = nextOwner; csrfToken = owner ? session.csrfToken : null;
+  loginButton.hidden = owner; logoutButton.hidden = !owner;
+  document.querySelector('#add-record').hidden = !owner;
+  document.querySelector('#actions-heading').hidden = !owner;
+  if (isWishlist) document.querySelector('#store-heading').hidden = !owner;
+  authStatus.textContent = '';
+}
+async function checkSession() {
+  const version = ++sessionCheckVersion;
+  const authEpoch = authVersion;
+  try {
+    const response = await fetch('/api/auth/session', { cache: 'no-store' });
+    if (!response.ok) throw Error('session');
+    const session = await response.json();
+    if (version !== sessionCheckVersion || authEpoch !== authVersion || writing || authBusy) return;
+    applySession(session);
+  } catch {
+    if (version !== sessionCheckVersion || authEpoch !== authVersion || writing || authBusy) return;
+    applySession({ role: 'guest' });
+    authStatus.textContent = 'Не удалось проверить вход. Попробуйте позже.';
+  }
+}
+loginButton.addEventListener('click', () => {
+  if (authBusy || writing) return;
+  passwordInput.value = ''; loginError.textContent = ''; loginDialog.showModal(); passwordInput.focus();
+});
+document.querySelector('#cancel-login').addEventListener('click', () => { if (!authBusy) loginDialog.close(); });
+loginDialog.addEventListener('cancel', event => { if (authBusy) event.preventDefault(); });
+loginDialog.addEventListener('close', () => { passwordInput.value = ''; });
+loginForm.addEventListener('submit', async event => {
+  event.preventDefault(); if (authBusy || writing) return;
+  authBusy = true; ++authVersion;
+  document.querySelector('#submit-login').disabled = true;
+  loginError.textContent = '';
+  const body = JSON.stringify({ password: passwordInput.value }); passwordInput.value = '';
+  try {
+    const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    if (!response.ok) {
+      loginError.textContent = response.status === 429 ? 'Слишком много попыток. Попробуйте позже.' : response.status === 401 ? 'Неверный пароль.' : 'Вход не выполнен. Попробуйте позже.';
+      return;
+    }
+    applySession(await response.json()); loginDialog.close();
+  } catch { loginError.textContent = 'Не удалось связаться с сервером. Попробуйте ещё раз.'; }
+  finally { authBusy = false; document.querySelector('#submit-login').disabled = false; }
+});
+logoutButton.addEventListener('click', async () => {
+  if (authBusy || writing) return;
+  authBusy = true; ++authVersion; logoutButton.disabled = true;
+  try {
+    const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
+    if (!response.ok && response.status !== 401) throw Error('logout');
+    applySession({ role: 'guest' });
+  } catch { authStatus.textContent = 'Выход не подтверждён. Повторите выход.'; }
+  finally { authBusy = false; logoutButton.disabled = false; }
+});
+document.addEventListener('DOMContentLoaded', async () => { resetResults(); await checkSession(); });
+window.addEventListener('focus', () => { if (!authBusy && !writing) void checkSession(); });

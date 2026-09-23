@@ -1,5 +1,6 @@
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { isIP } from 'node:net';
 import { OperationError } from './record-operations.mjs';
 
 const derive = promisify(scrypt);
@@ -23,7 +24,28 @@ export function authConfiguration(env) {
   return { passwordHash: env.OWNER_PASSWORD_HASH, origin: origin.origin, production };
 }
 
-// Fixed windows, bounded memory, both per-peer and aggregate ceilings. Never trust forwarded headers.
+// One production nginx hop only. nginx must overwrite X-Real-IP with $remote_addr.
+function canonicalIP(value) {
+  if (typeof value !== 'string' || value.includes('%') || !isIP(value)) return null;
+  if (isIP(value) === 4) return value;
+  const ipv6 = new URL(`http://[${value}]/`).hostname.slice(1, -1);
+  const mapped = ipv6.match(/^::ffff:([a-f0-9]+):([a-f0-9]+)$/);
+  if (!mapped) return ipv6;
+  return mapped.slice(1).flatMap(part => {
+    const word = parseInt(part, 16);
+    return [word >> 8, word & 255];
+  }).join('.');
+}
+function clientIP(req, production) {
+  const peer = canonicalIP(req.socket.remoteAddress) || 'unknown';
+  if (production && (peer === '127.0.0.1' || peer === '::1')) {
+    // Invalid, missing, duplicate or chained values share the socket peer bucket.
+    return canonicalIP(req.headers['x-real-ip']) || peer;
+  }
+  return peer;
+}
+
+// Fixed windows, bounded memory, both per-client and aggregate ceilings.
 export function createLimiter({ limit, total, windowMs, now = Date.now }) {
   const peers = new Map(); let global = { count: 0, until: 0 };
   return key => {
@@ -69,7 +91,7 @@ export function createAuth({ passwordHash, origin, production = false, now = Dat
       if (req.headers['x-csrf-token'] !== s.csrf) throw new OperationError(403, 'FORBIDDEN');
     },
     limit(req, kind, res) {
-      const retry = (kind === 'login' ? loginLimit : readLimit)(req.socket.remoteAddress || 'unknown');
+      const retry = (kind === 'login' ? loginLimit : readLimit)(clientIP(req, production));
       if (retry) { res.setHeader('Retry-After', retry); throw new OperationError(429, 'RATE_LIMITED'); }
     },
     async login(req, res, input) {

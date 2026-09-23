@@ -1,3 +1,4 @@
+import { testAuth, loginOwner, ownerFetch as fetch } from './fixtures/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -14,10 +15,11 @@ async function start(t) {
     appendRecord: async value => { writes++; records.push(value); },
     deleteRecord: async value => { writes++; records = records.filter(r => r.id !== value.id); }
   };
-  const server = createApp(createCollectionService(repository));
+  const server = createApp(createCollectionService(repository), { auth: testAuth() });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  return { url: `http://127.0.0.1:${server.address().port}`, get records() { return records; }, get writes() { return writes; }, repository };
+  const headers = await loginOwner(`http://127.0.0.1:${server.address().port}`);
+  return { headers, url: `http://127.0.0.1:${server.address().port}`, get records() { return records; }, get writes() { return writes; }, repository };
 }
 const { id, ...draft } = record;
 const post = (app, value, headers = {}) => fetch(`${app.url}/api/collection`, {
@@ -75,7 +77,7 @@ test('cross-origin and rebinding write requests are denied before reading or mut
   for (const headers of [{ Origin: 'https://attacker.example' }, { Origin: 'null' }, { Host: 'attacker.example' }, { 'Sec-Fetch-Site': 'cross-site' }]) {
     for (const [method, path] of [['POST', '/api/collection'], ['DELETE', `/api/collection/${id}`]]) {
       const response = await new Promise((resolve, reject) => {
-        const req = request(app.url + path, { method, headers: { 'Content-Type': 'application/json', ...headers } }, res => {
+        const req = request(app.url + path, { method, headers: { ...app.headers, 'Content-Type': 'application/json', ...headers } }, res => {
           let body = ''; res.setEncoding('utf8'); res.on('data', part => body += part);
           res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(body) }));
         });

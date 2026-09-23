@@ -1,3 +1,4 @@
+import { createAuth, authConfiguration } from './auth.mjs';
 import { createWishlistRepository } from './google-sheets-wishlist.mjs';
 import { createWishlistService } from './wishlist-service.mjs';
 import { createTransferService } from './transfer-service.mjs';
@@ -15,6 +16,7 @@ async function start() {
       !keyFile || !isAbsolute(keyFile) || !/^[0-9]+$/.test(portValue) ||
       Number(portValue) < 1 || Number(portValue) > 65535) throw new Error('Invalid configuration');
   await access(keyFile);
+  const auth = createAuth(authConfiguration(process.env));
   const serial = createWriteQueue();
   const collection = createGoogleSheetsRepository({ spreadsheetId, sheetName, keyFile });
   const services = createCollectionService(collection, serial);
@@ -24,7 +26,7 @@ async function start() {
     const wishlist = createWishlistRepository({ spreadsheetId: wishlistId, sheetName: wishlistSheet, keyFile });
     Object.assign(services, createWishlistService(wishlist, collection, serial), { transferRecord: createTransferService(wishlist, collection, serial) });
   }
-  const server = createApp(services);
+  const server = createApp(services, { auth });
   server.on('error', () => {
     console.error('Не удалось запустить сервер. Проверьте доступность локального порта.');
     process.exitCode = 1;

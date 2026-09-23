@@ -111,3 +111,24 @@ body[data-section="wishlist"] .row-actions { flex-direction: column; align-items
   .dialog-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .dialog-actions button { width: 100%; padding: 8px 4px; font-size: 12px; overflow-wrap: anywhere; }
 }
+
+.collection-header { margin-bottom: 20px; }
+.collection-header .brand { min-width: 0; margin: 0; padding: 0; }
+.collection-header .brand > div { min-width: 0; }
+.section-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; margin-bottom: 24px; }
+.section-bar .section-nav { margin-bottom: 0; }
+.owner-access { margin-left: auto; flex-shrink: 0; }
+.owner-access button { min-height: 44px; height: auto; padding: 10px; border-color: transparent; background: transparent; color: #677486; }
+.owner-access button:hover { color: #0b1b28; background: #edf0f3; }
+.section-nav { flex-wrap: wrap; }
+.auth-feedback { color: #8b2720; font-size: 14px; }
+.auth-feedback:empty { display: none; }
+.login-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
+.login-actions button { min-width: 88px; }
+@media (max-width: 480px) {
+  .collection-header .brand { gap: 8px; }
+  .collection-header .brand-logo { width: 36px; height: 36px; }
+  .collection-header .brand-name { overflow-wrap: anywhere; }
+}
+#login-dialog { width: min(380px, calc(100% - 28px)); }
+#login-error { color: #8b2720; }

@@ -1,3 +1,4 @@
+import { testAuth, loginOwner, ownerFetch as fetch } from './fixtures/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -13,10 +14,11 @@ async function start(t, configured = true) {
   const wishlist = memoryRepository([]), collection = memoryRepository([], 'collection'), serial = createWriteQueue();
   const server = createApp({ ...createCollectionService(collection, serial), ...(configured ? {
     ...createWishlistService(wishlist, collection, serial), transferRecord: createTransferService(wishlist, collection, serial)
-  } : {}) });
+  } : {}) }, { auth: testAuth() });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const url = `http://127.0.0.1:${server.address().port}`;
+  await loginOwner(url);
   return { wishlist, collection, call: (path = '', options = {}) => fetch(`${url}/api/wishlist${path}`, options), url };
 }
 const post = body => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

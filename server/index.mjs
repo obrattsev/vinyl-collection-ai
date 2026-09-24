@@ -32,7 +32,7 @@ async function start() {
     process.exitCode = 1;
   });
   server.listen(Number(portValue), '127.0.0.1', () => {
-    console.log(`Vinyl Collection AI: http://127.0.0.1:${Number(portValue)}/prototype/`);
+    console.log(`Vinyl Collection AI: http://127.0.0.1:${Number(portValue)}/collection`);
   });
 }
 

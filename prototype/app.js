@@ -1,3 +1,4 @@
+import { SORT_FIELDS, sortRecords, inputDate, displayValue, recordsCsv } from './record-presentation.mjs';
 import { PUBLIC_FIELDS, validatePublicRecords } from '../src/public-record.mjs';
 import { validateCollection } from '../src/collection-record.mjs';
 import { validateWishlist, validateWishlistDraft, wishlistFieldErrors, wishlistRevision } from '../src/wishlist-record.mjs';
@@ -38,8 +39,37 @@ let loading = false;
 let loadVersion = 0;
 let needsRefresh = false;
 let needsBothRefresh = false;
+let lastCriteria = {};
+let activeSort = null;
+let viewRecords = [];
+let displayedRecords = [];
+const downloadButton = document.querySelector('#download-records');
+function clearDisplayed() {
+  viewRecords = []; displayedRecords = []; downloadButton.disabled = true; downloadButton.hidden = true;
+}
+function updateSortHeadings() {
+  for (const field of SORT_FIELDS) {
+    const direction = activeSort?.field === field ? activeSort.direction : null;
+    document.querySelector(`#sort-heading-${field}`).setAttribute('aria-sort', direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : 'none');
+    document.querySelector(`#sort-${field}`).textContent = collectionLabels[field] + (direction === 'asc' ? ' ↑' : direction === 'desc' ? ' ↓' : '');
+  }
+}
+for (const field of SORT_FIELDS) document.querySelector(`#sort-${field}`).addEventListener('click', () => {
+  if (loading || writing) return;
+  activeSort = { field, direction: activeSort?.field === field && activeSort.direction === 'asc' ? 'desc' : 'asc' };
+  updateSortHeadings();
+  if (viewRecords.length) renderRecords(viewRecords);
+});
+downloadButton.addEventListener('click', () => {
+  if (loading || writing || !displayedRecords.length) return;
+  const columns = [...fields, ...(owner && isWishlist ? ['storeUrl'] : [])].map(field => [field, labels[field]]);
+  const url = URL.createObjectURL(new Blob([recordsCsv(displayedRecords, columns)], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a'); link.href = url; link.download = isWishlist ? 'wishlist.csv' : 'collection.csv';
+  link.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
+});
 
 function resetResults() {
+  clearDisplayed(); lastCriteria = {}; activeSort = null; updateSortHeadings();
   // Invalidates in-flight reads without clearing write-recovery requirements.
   loadVersion++;
   loading = false;
@@ -70,6 +100,7 @@ button.addEventListener('click', () => { if (!writing) return showCollection(); 
 
 async function showCollection(criteria = {}) {
   const version = ++loadVersion;
+  clearDisplayed();
   loading = true;
   button.disabled = true;
   controls.disabled = true;
@@ -88,6 +119,7 @@ async function showCollection(criteria = {}) {
     if (response.headers?.get('X-Access-Role') === 'guest' && owner) { applySession({ role: 'guest' }); await showCollection(criteria); return; }
     (owner ? validateRecords : validatePublicRecords)(records);
     const results = searchRecords(records, criteria);
+    lastCriteria = { ...criteria };
     needsRefresh = owner && needsBothRefresh;
     document.querySelector('#add-record').disabled = needsRefresh;
     if (records.length === 0) {
@@ -128,8 +160,10 @@ async function showCollection(criteria = {}) {
 }
 
 function renderRecords(records) {
+  viewRecords = records; displayedRecords = sortRecords(records, activeSort);
+  rows.replaceChildren(); downloadButton.disabled = !displayedRecords.length; downloadButton.hidden = !displayedRecords.length;
   const fragment = document.createDocumentFragment();
-  for (const record of records) {
+  for (const record of displayedRecords) {
     const row = document.createElement('tr');
     for (const field of [...fields, ...(owner && isWishlist ? ['storeUrl'] : [])]) {
       const cell = document.createElement('td');
@@ -144,6 +178,10 @@ function renderRecords(records) {
     remove.setAttribute('aria-label', `Удалить: ${record.artist} — ${record.album}`);
     remove.addEventListener('click', () => openDelete(record));
     actions.append(remove);
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'button-secondary';
+    edit.textContent = 'Редактировать'; edit.disabled = needsRefresh;
+    edit.setAttribute('aria-label', `Редактировать: ${record.artist} — ${record.album}`);
+    edit.addEventListener('click', () => openEdit(record)); actions.append(edit);
     if (isWishlist) {
       const transfer = document.createElement('button'); transfer.disabled = needsRefresh; transfer.type = 'button'; transfer.textContent = 'Добавить в коллекцию';
       transfer.setAttribute('aria-label', `Перенести в коллекцию: ${record.artist} — ${record.album}`);
@@ -159,9 +197,14 @@ function renderRecords(records) {
 
 const collectionLabels = { artist:'Исполнитель', album:'Альбом', genre:'Жанр', additionalGenre:'Дополнительный жанр', label:'Лейбл', albumYear:'Год альбома', recordYear:'Год пластинки', editionType:'Тип издания', note:'Примечание', purchaseDate:'Дата покупки', purchaseStore:'Магазин покупки', purchasePrice:'Цена покупки (руб.)' };
 const wishlistLabels = Object.fromEntries(Object.entries(collectionLabels).filter(([field]) => !field.startsWith('purchase')));
-wishlistLabels.storeUrl = 'Ссылка на онлайн-магазин';
+wishlistLabels.storeUrl = 'Ссылка';
 const labels = isWishlist ? wishlistLabels : collectionLabels;
 const purchaseFields = ['purchaseDate', 'purchaseStore', 'purchasePrice'];
+let editSource = null;
+let editConflict = null;
+const editInitialValues = new Map();
+const currentPreview = document.querySelector('#edit-current');
+const reviewCurrent = document.querySelector('#review-current');
 let transferSource = null;
 let transferTarget = null;
 let activeLabels = labels;
@@ -197,7 +240,7 @@ for (const [name, title] of Object.entries(isWishlist ? { ...labels, ...Object.f
     input.type = 'text';
     if (name.endsWith('Year')) { input.inputMode = 'numeric'; input.placeholder = 'YYYY'; input.maxLength = 4; }
     if (name === 'purchaseDate') {
-      input.placeholder = 'YYYY-MM-DD'; input.inputMode = 'numeric'; input.maxLength = 10;
+      input.placeholder = 'DD-MM-YYYY'; input.inputMode = 'numeric'; input.maxLength = 10;
     }
     if (name === 'purchasePrice') { input.inputMode = 'decimal'; input.placeholder = '0 — бесплатно'; }
   }
@@ -219,9 +262,15 @@ for (const [name, title] of Object.entries(isWishlist ? { ...labels, ...Object.f
 }
 function readDraft() {
   const input = Object.fromEntries(Object.keys(activeLabels).map(key => [key, formInputs.get(key).value.trim() ? formInputs.get(key).value : null]));
+  if (Object.hasOwn(input, 'purchaseDate')) input.purchaseDate = inputDate(input.purchaseDate);
   if (Object.hasOwn(input, 'purchasePrice') && input.purchasePrice !== null) {
     const price = formatPriceInput(input.purchasePrice);
     input.purchasePrice = price === null ? NaN : Number(price);
+  }
+  // Preserve untouched stored values even if native input sanitizes line breaks
+  // or the existing price has more precision than the manual input permits.
+  for (const [field, initial] of editInitialValues) {
+    if (formInputs.get(field).value === initial.controlValue) input[field] = initial.storedValue;
   }
   if (transferSource) {
     const { id, storeUrl, ...common } = transferSource;
@@ -230,6 +279,14 @@ function readDraft() {
   return input;
 }
 function setFormMode(source = null) {
+  editSource = editConflict = null;
+  editInitialValues.clear();
+  currentPreview.replaceChildren(); currentPreview.hidden = reviewCurrent.hidden = true;
+  // Legacy options belong only to the record being edited, never to later add forms.
+  for (const name of ['genre', 'additionalGenre']) {
+    const input = formInputs.get(name); input.replaceChildren();
+    for (const value of ['', ...GENRES]) { const option = document.createElement('option'); option.value = value; option.textContent = value || 'Неизвестно'; input.append(option); }
+  }
   transferSource = source; transferTarget = null;
   activeLabels = source ? Object.fromEntries(purchaseFields.map(field => [field, collectionLabels[field]])) : labels;
   for (const [name, input] of formInputs) {
@@ -244,7 +301,7 @@ function setFormMode(source = null) {
 }
 function renderFieldErrors(errors = {}) {
   for (const [field, input] of formInputs) {
-    const message = errors[field] ?? '';
+    const message = field === 'purchaseDate' && errors[field] ? 'Укажите существующую дату DD-MM-YYYY.' : errors[field] ?? '';
     input.setAttribute('aria-invalid', message ? 'true' : 'false');
     fieldMessages.get(field).textContent = message;
     fieldMessages.get(field).hidden = !message;
@@ -264,7 +321,13 @@ function displayRecord(target, record, displayLabels = labels) {
   const list = document.createElement('dl');
   for (const [field, title] of Object.entries(displayLabels)) {
     const term = document.createElement('dt'); term.textContent = title;
-    const value = document.createElement('dd'); value.textContent = record[field] ?? '';
+    const value = document.createElement('dd'); value.textContent = displayValue(field, record[field]);
+    if (editSource && target === preview && record[field] !== editSource[field]) {
+      value.className = 'changed-value';
+      const before = document.createElement('span'); before.className = 'previous-value';
+      before.textContent = `Было: ${displayValue(field, editSource[field]) === '' ? '—' : displayValue(field, editSource[field])} → Стало: `;
+      value.prepend(before);
+    }
     list.append(term, value);
   }
   target.replaceChildren(list);
@@ -284,8 +347,53 @@ async function additionRecords() {
   const [collection, wishlist] = await Promise.all([loadRecords('/api/collection'), loadRecords()]);
   return { collection, wishlist };
 }
+function showEditConflict(current) {
+  editConflict = current; draft = null;
+  recordFields.hidden = false; preview.hidden = true; confirmButton.hidden = true;
+  previewButton.disabled = true;
+  displayRecord(currentPreview, current);
+  currentPreview.hidden = reviewCurrent.hidden = false;
+  recordError.textContent = 'Запись изменилась. Ниже актуальные данные; ваш ввод сохранён в форме. Пересмотрите все различия перед новым подтверждением.';
+}
+reviewCurrent.addEventListener('click', () => {
+  if (!editConflict || writing) return;
+  editSource = editConflict; editConflict = null;
+  reviewCurrent.hidden = true; previewButton.disabled = false;
+  editDraft();
+  recordError.textContent = 'Сравните ваш ввод с актуальной записью ниже. Просмотрите полный проект перед сохранением.';
+});
+async function openEdit(record) {
+  if (!owner || authBusy || needsRefresh || writing) return;
+  const run = ++dialogRun;
+  recordForm.reset(); setFormMode(); editSource = record;
+  for (const [field, input] of formInputs) {
+    if (input.disabled) continue;
+    const value = displayValue(field, record[field]);
+    if (['genre', 'additionalGenre'].includes(field) && value && !GENRES.includes(value)) {
+      const option = document.createElement('option'); option.value = value; option.textContent = value; input.append(option);
+    }
+    input.value = String(value);
+    editInitialValues.set(field, { controlValue: input.value, storedValue: record[field] });
+    input.dispatchEvent(new Event('change'));
+  }
+  editDraft(); recordError.textContent = '';
+  document.querySelector('#dialog-title').textContent = isWishlist ? 'Редактирование wish-list' : 'Редактирование коллекции';
+  dialog.showModal();
+  try {
+    const { collection, wishlist } = await additionRecords();
+    if (run !== dialogRun || !dialog.open) return;
+    for (const field of ['artist', 'album', 'label']) {
+      const list = document.querySelector(`#suggest-${field}`); list.replaceChildren();
+      for (const value of new Set([...collection, ...wishlist].map(r => r[field]).filter(Boolean))) {
+        const option = document.createElement('option'); option.value = value; list.append(option);
+      }
+    }
+  } catch {
+    if (run === dialogRun && dialog.open) recordError.textContent = 'Не удалось загрузить подсказки. Перед сохранением данные будут проверены повторно.';
+  }
+}
 function editDraft() {
-  confirmButton.textContent = transferSource ? 'Подтвердить перенос' : 'Подтвердить добавление';
+  confirmButton.textContent = editSource ? 'Подтвердить изменения' : transferSource ? 'Подтвердить перенос' : 'Подтвердить добавление';
   transferTarget = null; draft = null; recordFields.hidden = false; preview.hidden = true;
   confirmButton.hidden = editButton.hidden = true; previewButton.hidden = false;
 }
@@ -317,13 +425,13 @@ dialog.addEventListener('close', () => {
   setFormMode();
 });
 recordForm.addEventListener('submit', async event => {
-  event.preventDefault(); if (!owner || authBusy || writing || checking || needsRefresh) return;
+  event.preventDefault(); if (!owner || authBusy || writing || checking || needsRefresh || editConflict) return;
   recordError.textContent = ''; editDraft();
   const input = readDraft();
   showFieldErrors = true;
   renderFieldErrors(activeErrors(input));
   try { validateActiveDraft(input); } catch {
-    recordError.textContent = isWishlist && !transferSource ? 'Проверьте обязательные поля, годы, жанры и ссылку на магазин.' : 'Проверьте заполнение обязательных полей, формат даты и цены.';
+    recordError.textContent = isWishlist && !transferSource ? 'Проверьте обязательные поля, годы, жанры и ссылку.' : 'Проверьте заполнение обязательных полей, формат даты и цены.';
     for (const [field, message] of fieldMessages) {
       if (!message.hidden) { formInputs.get(field).focus(); break; }
     }
@@ -334,7 +442,17 @@ recordForm.addEventListener('submit', async event => {
   try {
     const { collection, wishlist } = await additionRecords();
     if (run !== dialogRun || !dialog.open) return;
-    const result = checkAddition(input, transferSource ? 'collection' : isWishlist ? 'wishlist' : 'collection', collection, wishlist);
+    if (editSource) {
+      const current = (isWishlist ? wishlist : collection).find(r => r.id.toLowerCase() === editSource.id.toLowerCase());
+      if (!current) { recordError.textContent = 'Запись больше не существует. Черновик сохранён для просмотра.'; return; }
+      const expected = editSource;
+      const changed = await revisionFor(current) !== await revisionFor(expected);
+      if (run !== dialogRun || !dialog.open) return;
+      if (changed) { showEditConflict(current); return; }
+    }
+    const withoutSource = records => editSource ? records.filter(r => r.id.toLowerCase() !== editSource.id.toLowerCase()) : records;
+    const result = checkAddition(input, transferSource ? 'collection' : isWishlist ? 'wishlist' : 'collection',
+      editSource && !isWishlist ? withoutSource(collection) : collection, editSource && isWishlist ? withoutSource(wishlist) : wishlist);
     if (transferSource) {
       result.duplicates = collection.filter(record => isPotentialDuplicate(input, record));
       result.blocked = result.duplicates.length > 0;
@@ -346,7 +464,7 @@ recordForm.addEventListener('submit', async event => {
     }
     draft = input; displayRecord(preview, draft, transferSource ? collectionLabels : labels); preview.hidden = false; recordFields.hidden = true;
     if (result.warnings.length) {
-      recordError.textContent = 'Возможный дубль: признаки издания известны не полностью. Проверьте найденные записи; добавление можно подтвердить.';
+      recordError.textContent = 'Возможный дубль: признаки издания известны не полностью. Проверьте найденные записи; операцию можно подтвердить.';
       for (const record of result.warnings) { const block = document.createElement('div'); displayRecord(block, record); preview.append(block); }
     }
     if (result.ownedAlbums.length) {
@@ -355,9 +473,9 @@ recordForm.addEventListener('submit', async event => {
     }
     previewButton.hidden = true; confirmButton.hidden = editButton.hidden = false;
   } catch {
-    if (run === dialogRun && dialog.open) recordError.textContent = 'Не удалось проверить коллекцию. Добавление не выполнено.';
+    if (run === dialogRun && dialog.open) recordError.textContent = 'Не удалось проверить коллекцию. Изменения не записаны.';
   } finally {
-    if (run === dialogRun) { checking = false; previewButton.disabled = false; recordFields.disabled = false; }
+    if (run === dialogRun) { checking = false; previewButton.disabled = Boolean(editConflict); recordFields.disabled = false; }
   }
 });
 function requireRefresh() {
@@ -388,7 +506,7 @@ async function writeRequest(url, options) {
   return body;
 }
 confirmButton.addEventListener('click', async () => {
-  if (!owner || authBusy || writing || (!draft && !transferTarget) || needsRefresh) return;
+  if (!owner || authBusy || writing || (!draft && !transferTarget) || needsRefresh || editConflict) return;
   writing = true; invalidateReads(); confirmButton.disabled = editButton.disabled = true;
   const source = transferSource;
   const target = transferTarget;
@@ -403,13 +521,17 @@ confirmButton.addEventListener('click', async () => {
         : `Перенесено в коллекцию: ${result.collectionRecord.artist} — ${result.collectionRecord.album}`;
       await refreshBoth();
     } else {
-      const created = await writeRequest(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(draft)});
-      dialog.close(); operationStatus.textContent = `Добавлено: ${created.artist} — ${created.album}`;
-      await showCollection();
+      const editing = editSource;
+      const created = await writeRequest(editing ? `${endpoint}/${editing.id}` : endpoint, {
+        method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...(editing ? { 'If-Match': await revisionFor(editing) } : {}) }, body: JSON.stringify(draft)
+      });
+      dialog.close(); operationStatus.textContent = `${editing ? 'Изменено' : 'Добавлено'}: ${created.artist} — ${created.album}`;
+      await showCollection(editing ? lastCriteria : {});
     }
   } catch (error) {
     recordError.textContent = messageFor(error.error);
     draft = null; confirmButton.hidden = true;
+    if (editSource && error.error === 'RECORD_CHANGED' && error.record) showEditConflict(error.record);
     if (error.error === 'RESULT_UNCONFIRMED') {
       requireRefresh(); editButton.hidden = true;
       if (source) {

@@ -25,11 +25,11 @@ class Input extends EventTarget {
   paste(text) { this.send('paste', { clipboardData: { getData: () => text } }); }
 }
 
-test('date formatting supports partial digit entry and ISO paste with an eight-digit limit', () => {
-  for (const [value, expected] of [['', ''], ['2026', '2026'], ['20260', '2026-0'], ['20260921', '2026-09-21'], ['2026-09-21', '2026-09-21']]) {
+test('date formatting supports partial digit entry and DD-MM-YYYY paste with an eight-digit limit', () => {
+  for (const [value, expected] of [['', ''], ['21', '21'], ['210', '21-0'], ['21092026', '21-09-2026'], ['21-09-2026', '21-09-2026']]) {
     assert.equal(formatDateInput(value), expected);
   }
-  for (const value of ['202609211', 'a20260921', '2026/09/21', '+20260921', '2026.09.21']) assert.equal(formatDateInput(value), null);
+  for (const value of ['210920261', 'a21092026', '2026/09/21', '+21092026', '2026.09.21']) assert.equal(formatDateInput(value), null);
 });
 
 test('price input supports rubles and two kopeck digits, rejects non-monetary syntax', () => {
@@ -41,14 +41,14 @@ test('price input supports rubles and two kopeck digits, rejects non-monetary sy
 
 test('date typing blocks letters and excess digits; valid paste formats, invalid paste preserves value', () => {
   const input = new Input(); bindInputConstraint(input, formatDateInput);
-  for (const digit of '20260921') input.type(digit);
-  assert.equal(input.value, '2026-09-21');
-  input.type('9'); input.type('x'); assert.equal(input.value, '2026-09-21');
+  for (const digit of '21092026') input.type(digit);
+  assert.equal(input.value, '21-09-2026');
+  input.type('9'); input.type('x'); assert.equal(input.value, '21-09-2026');
   input.setSelectionRange(0, input.value.length);
-  input.paste('not a date'); assert.equal(input.value, '2026-09-21');
-  input.paste('20241231'); assert.equal(input.value, '2024-12-31');
+  input.paste('not a date'); assert.equal(input.value, '21-09-2026');
+  input.paste('31122024'); assert.equal(input.value, '31-12-2024');
   input.setSelectionRange(0, input.value.length);
-  input.paste('202401011'); assert.equal(input.value, '2024-12-31');
+  input.paste('010120241'); assert.equal(input.value, '31-12-2024');
 });
 
 test('price typing and paste reject signs, exponent, second separator and extra precision', () => {
@@ -72,13 +72,13 @@ test('fallback input events reject invalid autofill and reset forgets the previo
 
 test('date separators do not trap Backspace or Delete; caret edits keep the mask', () => {
   const input = new Input(); bindInputConstraint(input, formatDateInput);
-  input.paste('20260921'); input.setSelectionRange(5, 5);
+  input.paste('21092026'); input.setSelectionRange(3, 3);
   const backspace = input.send('beforeinput', { inputType: 'deleteContentBackward', data: null });
-  assert.equal(backspace.defaultPrevented, true); assert.equal(input.value, '2020-92-1');
-  input.setSelectionRange(0, input.value.length); input.paste('20260921');
-  input.setSelectionRange(4, 4);
+  assert.equal(backspace.defaultPrevented, true); assert.equal(input.value, '20-92-026');
+  input.setSelectionRange(0, input.value.length); input.paste('21092026');
+  input.setSelectionRange(2, 2);
   input.send('beforeinput', { inputType: 'deleteContentForward', data: null });
-  assert.equal(input.value, '2026-92-1');
+  assert.equal(input.value, '21-92-026');
 });
 
 test('year typing and paste accept only four ASCII digits, including selection replacement', () => {

@@ -1,5 +1,6 @@
 import * as publicModel from '../../src/public-record.mjs';
 // Minimal DOM harness for actual app.js handlers. Layout/input behavior is checked in a browser.
+import * as presentation from '../../prototype/record-presentation.mjs';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import * as wishlistModel from '../../src/wishlist-record.mjs';
@@ -11,6 +12,7 @@ import * as inputs from '../../prototype/input-controls.mjs';
 
 export async function prototypeUI(fetch, { wishlist = false, owner = true } = {}) {
   const elements = new Map();
+  const downloads = [];
   const namedInputs = new Map();
   class Element {
     constructor(tag = 'div') {
@@ -18,6 +20,8 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true } = {}
       this.hidden = false; this.disabled = false; this.open = false;
       this.textContent = ''; this.value = ''; this.attributes = {};
     }
+    set value(value) { this._value = this.tagName === 'INPUT' && this.type === 'text' ? String(value).replace(/[\r\n]/g, '') : value; }
+    get value() { return this._value; }
     set id(value) { this._id = value; elements.set(`#${value}`, this); }
     get id() { return this._id; }
     set name(value) { this._name = value; namedInputs.set(value, this); }
@@ -28,6 +32,8 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true } = {}
       for (const fn of this.handlers[type] ?? []) await fn({ type, target: this, preventDefault() {}, ...properties });
     }
     dispatchEvent(event) { for (const fn of this.handlers[event.type] ?? []) fn(event); }
+    click() { if (this.tagName === 'A') downloads.push(this.href); }
+    prepend(...children) { this.children.unshift(...children); }
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children = children; }
     setAttribute(name, value) { this.attributes[name] = value; }
@@ -50,13 +56,14 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true } = {}
     const input = document.querySelector(name === 'albumYear' ? '#search-year' : `#search-${name}`);
     input.id = name === 'albumYear' ? 'search-year' : `search-${name}`; return [name, input];
   }));
-  const context = vm.createContext({ document, window: { addEventListener() {} }, fetch, Event, URL,
+  const context = vm.createContext({ document, window: { addEventListener() {} }, fetch, Event, URL, Blob, setTimeout,
     FormData: class { constructor(form) { return [...(form === document.querySelector('#search-form') ? searchInputs : namedInputs)].map(([name, input]) => [name, input.value]); } },
-    ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
+    ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
   const source = (await readFile(new URL('../../prototype/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   vm.runInContext(source, context);
   vm.runInContext(`applySession(${JSON.stringify(owner ? {role:'owner',csrfToken:'test-csrf'} : {role:'guest'})})`, context);
   return {
+    downloads,
     start: () => document.handlers.DOMContentLoaded(),
     get: selector => document.querySelector(selector),
     run: script => vm.runInContext(script, context),

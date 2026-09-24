@@ -10,18 +10,27 @@ import { CollectionSourceError } from './google-sheets-collection.mjs';
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
   ['/src/public-record.mjs', ['../src/public-record.mjs', 'text/javascript; charset=utf-8']],
-  ['/prototype/wishlist.html', ['../prototype/wishlist.html', 'text/html; charset=utf-8']],
+  ['/wishlist', ['../prototype/wishlist.html', 'text/html; charset=utf-8']],
   ['/src/base-record.mjs', ['../src/base-record.mjs', 'text/javascript; charset=utf-8']],
   ['/src/wishlist-record.mjs', ['../src/wishlist-record.mjs', 'text/javascript; charset=utf-8']],
   ['/src/wishlist-rules.mjs', ['../src/wishlist-rules.mjs', 'text/javascript; charset=utf-8']],
-  ['/prototype/', ['../prototype/index.html', 'text/html; charset=utf-8']],
-  ['/prototype/index.html', ['../prototype/index.html', 'text/html; charset=utf-8']],
-  ['/prototype/styles.css', ['../prototype/styles.css', 'text/css; charset=utf-8']],
-  ['/prototype/app.js', ['../prototype/app.js', 'text/javascript; charset=utf-8']],
-  ['/prototype/input-controls.mjs', ['../prototype/input-controls.mjs', 'text/javascript; charset=utf-8']],
+  ['/collection', ['../prototype/index.html', 'text/html; charset=utf-8']],
+  ['/assets/styles.css', ['../prototype/styles.css', 'text/css; charset=utf-8']],
+  ['/assets/app.js', ['../prototype/app.js', 'text/javascript; charset=utf-8']],
+  ['/assets/input-controls.mjs', ['../prototype/input-controls.mjs', 'text/javascript; charset=utf-8']],
   ['/src/genres.mjs', ['../src/genres.mjs', 'text/javascript; charset=utf-8']],
   ['/src/collection-record.mjs', ['../src/collection-record.mjs', 'text/javascript; charset=utf-8']],
   ['/src/collection-rules.mjs', ['../src/collection-rules.mjs', 'text/javascript; charset=utf-8']]
+]);
+
+// Only known page aliases redirect; unknown paths remain 404.
+const pageAliases = new Map([
+  ['', '/collection'],
+  ['/collection', '/collection'],
+  ['/wishlist', '/wishlist'],
+  ['/prototype', '/collection'],
+  ['/prototype/index.html', '/collection'],
+  ['/prototype/wishlist.html', '/wishlist']
 ]);
 
 function json(res, status, body) {
@@ -97,8 +106,9 @@ export function createApp({ getCollection, createRecord, deleteRecord, getWishli
         if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
         json(res, 200, await deleteRecord(path.slice('/api/collection/'.length), req.headers['if-match'])); return;
       }
-      if ((path === '/' || path === '/prototype') && (req.method === 'GET' || req.method === 'HEAD')) {
-        res.writeHead(302, { Location: '/prototype/' });
+      const canonicalPage = pageAliases.get(path.replace(/\/+$/, ''));
+      if (canonicalPage && canonicalPage !== path && (req.method === 'GET' || req.method === 'HEAD')) {
+        res.writeHead(308, { Location: canonicalPage + req.url.slice(path.length) });
         res.end();
         return;
       }

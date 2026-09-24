@@ -68,14 +68,14 @@ test('POST, DELETE and other methods cannot invoke the data source', async t => 
 test('only the explicit client files are served with correct MIME types', async t => {
   const url = await start(t);
   for (const [path, mime, text] of [
-    ['/prototype/', 'text/html', 'Моя коллекция'],
-    ['/prototype/index.html', 'text/html', 'Моя коллекция'],
-    ['/prototype/app.js', 'text/javascript', "'/api/collection'"],
-    ['/prototype/styles.css', 'text/css', 'overflow-x: auto'],
+    ['/collection', 'text/html', 'Моя коллекция'],
+    ['/wishlist', 'text/html', 'Wish-list'],
+    ['/assets/app.js', 'text/javascript', "'/api/collection'"],
+    ['/assets/styles.css', 'text/css', 'overflow-x: auto'],
     ['/src/collection-rules.mjs', 'text/javascript', 'searchCollection'],
     ['/src/collection-record.mjs', 'text/javascript', 'validateDraft'],
     ['/src/genres.mjs', 'text/javascript', 'GENRES'],
-    ['/prototype/input-controls.mjs', 'text/javascript', 'bindInputConstraint']
+    ['/assets/input-controls.mjs', 'text/javascript', 'bindInputConstraint']
   ]) {
     const response = await fetch(url + path);
     assert.equal(response.status, 200);
@@ -83,7 +83,7 @@ test('only the explicit client files are served with correct MIME types', async 
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
     assert.ok((await response.text()).includes(text));
   }
-  const head = await fetch(`${url}/prototype/app.js`, {method:'HEAD'});
+  const head = await fetch(`${url}/assets/app.js`, {method:'HEAD'});
   assert.equal(head.status, 200);
   assert.equal(await head.text(), '');
 });
@@ -108,15 +108,15 @@ test('secrets, server files, local JSON and encoded/traversal paths are not serv
   }
 });
 
-test('UI has no fixture fallback and root points to the existing prototype', async t => {
+test('UI has no fixture fallback and root redirects to the canonical collection', async t => {
   const url = await start(t);
   const response = await fetch(url, {redirect:'manual'});
-  assert.equal(response.status, 302);
-  assert.equal(response.headers.get('location'), '/prototype/');
-  const js = await (await fetch(`${url}/prototype/app.js`)).text();
+  assert.equal(response.status, 308);
+  assert.equal(response.headers.get('location'), '/collection');
+  const js = await (await fetch(`${url}/assets/app.js`)).text();
   assert.ok(!js.includes('collection.json'));
   assert.ok(js.includes('Ошибка загрузки данных. Не удалось загрузить коллекцию.'));
-  const html = await (await fetch(`${url}/prototype/`)).text();
+  const html = await (await fetch(`${url}/collection`)).text();
   assert.ok(!html.includes('вымышлены'));
   assert.ok(!html.includes('тестовые записи'));
 });

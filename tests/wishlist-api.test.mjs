@@ -76,6 +76,6 @@ test('transfer HTTP exposes distinct complete, partial and unconfirmed creation 
 });
 test('wishlist client modules are served; adapter, fixtures and configuration remain private', async t => {
   const app = await start(t);
-  for (const path of ['/prototype/wishlist.html', '/src/base-record.mjs', '/src/wishlist-record.mjs', '/src/wishlist-rules.mjs']) assert.equal((await fetch(app.url + path)).status, 200);
+  for (const path of ['/wishlist', '/src/base-record.mjs', '/src/wishlist-record.mjs', '/src/wishlist-rules.mjs']) assert.equal((await fetch(app.url + path)).status, 200);
   for (const path of ['/server/transfer-service.mjs', '/tests/fixtures/wishlist.mjs', '/.env', '/docs/wishlist-setup.md']) assert.equal((await fetch(app.url + path)).status, 404);
 });

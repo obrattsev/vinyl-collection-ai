@@ -72,6 +72,25 @@ export function createSheetsRepository({ spreadsheetId, sheetName, keyFile, colu
         sheetId: targetId, rows: [{ values: cells }], fields: 'userEnteredValue'
       } }] } });
     },
+    updateRecord: async (record, expected) => {
+      const targetId = await sheetId();
+      const { values, records } = await read();
+      const current = records.find(r => r.id.toLowerCase() === record.id.toLowerCase());
+      if (!current) throw new OperationError(404, 'NOT_FOUND');
+      if (await recordRevision(current) !== expected) throw new OperationError(409, 'RECORD_CHANGED', { record: current });
+      const idColumn = values[0].indexOf('ID');
+      const rowIndex = values.findIndex((row, i) => i > 0 && typeof row[idColumn] === 'string' && row[idColumn].toLowerCase() === record.id.toLowerCase());
+      // Only mapped user cells: preserve UUID, unknown columns, formulas and formatting.
+      const requests = values[0].flatMap((header, columnIndex) => {
+        if (!Object.hasOwn(columns, header) || columns[header] === 'id') return [];
+        const value = record[columns[header]];
+        const cell = value == null ? {} : { userEnteredValue:
+          typeof value === 'number' ? { numberValue: value } : { stringValue: value } };
+        return [{ updateCells: { range: { sheetId: targetId, startRowIndex: rowIndex, endRowIndex: rowIndex + 1,
+          startColumnIndex: columnIndex, endColumnIndex: columnIndex + 1 }, rows: [{ values: [cell] }], fields: 'userEnteredValue' } }];
+      });
+      await request({ url: `${base}:batchUpdate`, method: 'POST', data: { requests } });
+    },
     deleteRecord: async (record, expected) => {
       const targetId = await sheetId();
       const { values, records } = await read();

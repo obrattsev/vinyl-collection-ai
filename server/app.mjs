@@ -9,6 +9,7 @@ import { CollectionSourceError } from './google-sheets-collection.mjs';
 
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
+  ['/assets/record-presentation.mjs', ['../prototype/record-presentation.mjs', 'text/javascript; charset=utf-8']],
   ['/src/public-record.mjs', ['../src/public-record.mjs', 'text/javascript; charset=utf-8']],
   ['/wishlist', ['../prototype/wishlist.html', 'text/html; charset=utf-8']],
   ['/src/base-record.mjs', ['../src/base-record.mjs', 'text/javascript; charset=utf-8']],
@@ -38,7 +39,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, transferRecord }, { auth } = {}) {
+export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord }, { auth } = {}) {
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -89,7 +90,8 @@ export function createApp({ getCollection, createRecord, deleteRecord, getWishli
         }
         const target = path.match(/^\/api\/wishlist\/([^/]+)$/);
         if (target) {
-          if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
+          if (req.method === 'PUT') { json(res, 200, await updateWishlistRecord(target[1], req.headers['if-match'], await readBody(req))); return; }
+          if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE, PUT'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
           json(res, 200, await deleteWishlistRecord(target[1], req.headers['if-match'])); return;
         }
         json(res, 404, { error: 'NOT_FOUND' }); return;
@@ -103,7 +105,8 @@ export function createApp({ getCollection, createRecord, deleteRecord, getWishli
         json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return;
       }
       if (/^\/api\/collection\/[^/]+$/.test(path) && deleteRecord) {
-        if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
+        if (req.method === 'PUT') { json(res, 200, await updateRecord(path.slice('/api/collection/'.length), req.headers['if-match'], await readBody(req))); return; }
+        if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE, PUT'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
         json(res, 200, await deleteRecord(path.slice('/api/collection/'.length), req.headers['if-match'])); return;
       }
       const canonicalPage = pageAliases.get(path.replace(/\/+$/, ''));

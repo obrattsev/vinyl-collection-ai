@@ -5,7 +5,7 @@ export function formatDateInput(value) {
   if (!/^[0-9-]*$/.test(value)) return null;
   const digits = value.replaceAll('-', '');
   if (digits.length > 8) return null;
-  return [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)].filter(Boolean).join('-');
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join('-');
 }
 
 export function formatPriceInput(value) {
@@ -16,6 +16,7 @@ export function formatPriceInput(value) {
 
 export function bindInputConstraint(input, format) {
   let previous = input.value;
+  input.addEventListener('change', () => { previous = input.value; });
   function apply(value, caret) {
     const formatted = format(value);
     input.value = formatted ?? previous;

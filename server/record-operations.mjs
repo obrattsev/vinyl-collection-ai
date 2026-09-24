@@ -41,3 +41,18 @@ export async function deleteVerified(repository, read, record, expected, before,
   if (after.some(r => sameId(r.id, record.id)) || !preserved(before.filter(r => !sameId(r.id, record.id)), after, snapshot)) throw new OperationError(500, 'RESULT_UNCONFIRMED', { id: record.id });
   return record;
 }
+
+export async function updateVerified(repository, read, record, input, expected, before, snapshot) {
+  const candidate = { ...input, id: record.id };
+  try { await repository.updateRecord(candidate, expected); } catch (error) {
+    if (error instanceof OperationError) throw error;
+  }
+  let after;
+  try { after = await read(); } catch { throw new OperationError(500, 'RESULT_UNCONFIRMED', { id: record.id }); }
+  const actual = after.find(r => sameId(r.id, record.id));
+  if (!actual || snapshot(actual) !== snapshot(candidate) ||
+      !preserved(before.filter(r => !sameId(r.id, record.id)), after, snapshot)) {
+    throw new OperationError(500, 'RESULT_UNCONFIRMED', { id: record.id });
+  }
+  return actual;
+}

@@ -7,7 +7,7 @@ import { GENRES } from '../src/genres.mjs';
 async function prepareAddition(ui) {
   await ui.get('#add-record').fire('click');
   const { id, ...draft } = record;
-  ui.fill(draft);
+  ui.fill({ ...draft, purchaseDate: '03-09-2026' });
   await ui.get('#record-form').fire('submit');
   assert.equal(ui.get('#confirm-record').hidden, false);
 }
@@ -84,11 +84,11 @@ test('empty and invalid fields receive accessible field feedback and clear after
     assert.equal(ui.input(name).attributes['aria-describedby'], `error-${name}`);
     assert.equal(ui.get(`#error-${name}`).hidden, false);
   }
-  ui.fill({ artist: 'New', album: 'New', albumYear: '2026', purchaseDate: '2026-02-30', purchasePrice: '-1', genre: 'Jazz', additionalGenre: 'Jazz' });
+  ui.fill({ artist: 'New', album: 'New', albumYear: '2026', purchaseDate: '30-02-2026', purchasePrice: '-1', genre: 'Jazz', additionalGenre: 'Jazz' });
   await ui.get('#record-form').fire('input');
   for (const field of ['purchaseDate', 'purchasePrice', 'genre', 'additionalGenre']) assert.equal(ui.input(field).attributes['aria-invalid'], 'true');
   assert.equal(ui.input('artist').attributes['aria-invalid'], 'false');
-  ui.fill({ purchaseDate: '2024-02-29', purchasePrice: '12.50', additionalGenre: 'Blues' });
+  ui.fill({ purchaseDate: '29-02-2024', purchasePrice: '12.50', additionalGenre: 'Blues' });
   await ui.get('#record-form').fire('change');
   for (const field of ['purchaseDate', 'purchasePrice', 'genre', 'additionalGenre']) assert.equal(ui.input(field).attributes['aria-invalid'], 'false');
   assert.equal(ui.get('#record-error').textContent, '');
@@ -96,7 +96,7 @@ test('empty and invalid fields receive accessible field feedback and clear after
 
 test('both optional genre selectors use exactly the shared closed catalog', async () => {
   const ui = await prototypeUI(async () => response([]));
-  assert.equal(GENRES.length, 29); assert.equal(new Set(GENRES).size, 29);
+  assert.equal(GENRES.length, 31); assert.equal(new Set(GENRES).size, 31);
   for (const field of ['genre', 'additionalGenre']) {
     const input = ui.input(field);
     assert.equal(input.tagName, 'SELECT');

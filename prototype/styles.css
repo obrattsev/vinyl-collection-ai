@@ -118,8 +118,8 @@ body[data-section="wishlist"] .row-actions { flex-direction: column; align-items
 .section-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; margin-bottom: 24px; }
 .section-bar .section-nav { margin-bottom: 0; }
 .owner-access { margin-left: auto; flex-shrink: 0; }
-.owner-access button { min-height: 44px; height: auto; padding: 10px; border-color: transparent; background: transparent; color: #677486; }
-.owner-access button:hover { color: #0b1b28; background: #edf0f3; }
+.owner-access button, #download-records { min-height: 44px; height: auto; padding: 10px; border-color: transparent; background: transparent; color: #677486; }
+.owner-access button:hover, #download-records:hover { color: #0b1b28; background: #edf0f3; }
 .section-nav { flex-wrap: wrap; }
 .auth-feedback { color: #8b2720; font-size: 14px; }
 .auth-feedback:empty { display: none; }
@@ -132,3 +132,12 @@ body[data-section="wishlist"] .row-actions { flex-direction: column; align-items
 }
 #login-dialog { width: min(380px, calc(100% - 28px)); }
 #login-error { color: #8b2720; }
+
+.sort-button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; padding: 0; cursor: pointer; text-align: left; }
+.sort-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.results-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; }
+.results-summary #status { margin: 0; min-width: 0; }
+#download-records { flex-shrink: 0; margin-left: auto; white-space: nowrap; }
+.changed-value { font-weight: 700; }
+.previous-value { display: block; font-weight: 400; }
+#edit-current:not([hidden]) { border: 1px solid currentColor; padding: 1rem; margin-block: 1rem; }

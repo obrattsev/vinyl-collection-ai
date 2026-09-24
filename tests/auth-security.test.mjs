@@ -15,7 +15,7 @@ async function start(t, config = {}) {
   const auth = testAuth({ now: () => time, ...config });
   const mutate = async () => { writes++; return {}; };
   const server = createApp({ getCollection: async () => { reads++; return [record]; }, getWishlist: async () => { reads++; return [wish]; },
-    createRecord: mutate, deleteRecord: mutate, createWishlistRecord: mutate, deleteWishlistRecord: mutate, transferRecord: mutate }, { auth });
+    updateRecord: mutate, updateWishlistRecord: mutate, createRecord: mutate, deleteRecord: mutate, createWishlistRecord: mutate, deleteWishlistRecord: mutate, transferRecord: mutate }, { auth });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const url = `http://127.0.0.1:${server.address().port}`;
@@ -31,7 +31,7 @@ function rawFetch(url, options) {
     req.on('error', reject); req.end(options.body);
   });
 }
-const targets = [['POST', '/api/collection'], ['DELETE', `/api/collection/${record.id}`], ['POST', '/api/wishlist'], ['DELETE', `/api/wishlist/${wish.id}`], ['POST', `/api/wishlist/${wish.id}/transfer`]];
+const targets = [['PUT', `/api/collection/${record.id}`], ['PUT', `/api/wishlist/${wish.id}`], ['POST', '/api/collection'], ['DELETE', `/api/collection/${record.id}`], ['POST', '/api/wishlist'], ['DELETE', `/api/wishlist/${wish.id}`], ['POST', `/api/wishlist/${wish.id}/transfer`]];
 const DAY = 86400000;
 
 test('all write routes reject guests and forged sessions before any business reads/writes', async t => {
@@ -59,10 +59,10 @@ test('login gives full owner models; cookie + CSRF allow each existing write rou
   const app = await start(t); const headers = await loginOwner(app.url);
   for (const [path, source] of [['/api/collection', record], ['/api/wishlist', wish]]) assert.deepEqual(await (await app.call(path, { headers })).json(), [source]);
   for (const [method, path] of targets) {
-    const res = await app.call(path, { method, headers: { ...headers, 'Content-Type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
+    const res = await app.call(path, { method, headers: { ...headers, 'Content-Type': 'application/json' }, body: ['POST', 'PUT'].includes(method) ? '{}' : undefined });
     assert.ok(res.ok);
   }
-  assert.equal(app.writes, 5);
+  assert.equal(app.writes, 7);
 });
 test('CSRF, absent/foreign Origin, cross-site and forged Host are rejected before source access', async t => {
   const app = await start(t); const headers = await loginOwner(app.url);

@@ -26,9 +26,9 @@ test('presentation sorting is stable, immutable, numeric, normalized, with null 
   assert.deepEqual(sortRecords([{artist:'a  b',albumYear:'2000'}, {artist:'A B',albumYear:'1990'}]).map(r=>r.albumYear), ['1990','2000']);
 });
 test('date conversion leaves validation in ISO model, preserves null, leap dates and no timezone parsing', () => {
-  assert.equal(inputDate('29-02-2024'), '2024-02-29'); assert.equal(displayDate('2024-02-29'), '29-02-2024');
+  assert.equal(inputDate('29.02.2024'), '2024-02-29'); assert.equal(displayDate('2024-02-29'), '29.02.2024');
   assert.equal(inputDate(''), null); assert.equal(displayDate(null), '');
-  for (const value of ['29-02-2023', '31-04-2026', '01-01-20', '2026-01-01']) assert.equal(isCalendarDate(inputDate(value)), false);
+  for (const value of ['29.02.2023', '31.04.2026', '01.01.20', '2026-01-01']) assert.equal(isCalendarDate(inputDate(value)), false);
 });
 test('CSV BOM, semicolon, quotes, newlines, zero/null, explicit columns and formula protection', () => {
   const csv = recordsCsv([{ album: 'Тест;"А"\nБ', note: '  =HYPERLINK("x")', purchasePrice: 0, id: 'never' }], [['album','Альбом'],['note','Примечание'],['purchasePrice','Цена']]);
@@ -53,8 +53,8 @@ for (const wishlist of [false,true]) {
     await ui.get('#sort-albumYear').fire('click'); await ui.get('#sort-albumYear').fire('click');
     await ui.run(`openEdit(${JSON.stringify(stored)})`);
     assert.equal(ui.input('genre').value, 'Legacy genre');
-    if (!wishlist) assert.equal(ui.input('purchaseDate').value, '03-09-2026');
-    ui.fill({ album: 'No longer matches', note: null, ...(wishlist ? { storeUrl: null } : { purchasePrice: 0, purchaseDate: '29-02-2024', purchaseStore: null }) });
+    if (!wishlist) assert.equal(ui.input('purchaseDate').value, '03.09.2026');
+    ui.fill({ album: 'No longer matches', note: null, ...(wishlist ? { storeUrl: null } : { purchasePrice: 0, purchaseDate: '29.02.2024', purchaseStore: null }) });
     await ui.get('#record-form').fire('submit');
     assert.equal(ui.get('#confirm-record').hidden, false);
     assert.ok(ui.get('#record-preview').children[0].children.some(e => e.className === 'changed-value'));
@@ -134,7 +134,7 @@ test('edit preserves untouched multiline text and existing price precision witho
   const source = { ...record, note: 'Line 1\nLine 2', purchasePrice: 1.234 };
   const ui = await prototypeUI(async () => response([source]));
   await ui.run(`openEdit(${JSON.stringify(source)})`);
-  assert.equal(ui.input('note').value, 'Line 1Line 2');
+  assert.equal(ui.input('note').value, 'Line 1\nLine 2');
   ui.fill({ album: 'Edited' });
   await ui.get('#record-form').fire('submit');
   assert.equal(ui.get('#confirm-record').hidden, false);

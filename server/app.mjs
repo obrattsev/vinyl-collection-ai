@@ -9,6 +9,9 @@ import { CollectionSourceError } from './google-sheets-collection.mjs';
 
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
+  ['/assets/mobile-records.mjs', ['../prototype/mobile-records.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/bug-report.mjs', ['../src/bug-report.mjs', 'text/javascript; charset=utf-8']],
+  ['/assets/bug-report-ui.mjs', ['../prototype/bug-report-ui.mjs', 'text/javascript; charset=utf-8']],
   ['/assets/record-presentation.mjs', ['../prototype/record-presentation.mjs', 'text/javascript; charset=utf-8']],
   ['/src/public-record.mjs', ['../src/public-record.mjs', 'text/javascript; charset=utf-8']],
   ['/wishlist', ['../prototype/wishlist.html', 'text/html; charset=utf-8']],
@@ -39,7 +42,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord }, { auth } = {}) {
+export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport }, { auth } = {}) {
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -71,6 +74,12 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         if (allowed) { res.setHeader('Allow', allowed); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); }
         else json(res, 404, { error: 'NOT_FOUND' });
         return;
+      }
+      if (path === '/api/bug-reports') {
+        if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
+        auth.limit(req, 'report', res);
+        if (!createReport) throw new OperationError(503, 'REPORT_NOT_CONFIGURED');
+        json(res, 201, await createReport(await readBody(req, 16384))); return;
       }
       if (unsafe) auth.requireOwner(req, session);
       if (req.method === 'GET' && path.startsWith('/api/') && !session) auth?.limit(req, 'read', res);
@@ -139,12 +148,12 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
   });
 }
 
-async function readBody(req) {
+async function readBody(req, maximum = 65536) {
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw new OperationError(400, 'INVALID_REQUEST');
   let size = 0; const chunks = [];
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 65536) throw new OperationError(400, 'INVALID_REQUEST');
+    if (size > maximum) throw new OperationError(400, 'INVALID_REQUEST');
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }

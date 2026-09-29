@@ -1,3 +1,5 @@
+import { createMobileRecords } from '../../prototype/mobile-records.mjs';
+import { bindBugReport } from '../../prototype/bug-report-ui.mjs';
 import * as publicModel from '../../src/public-record.mjs';
 // Minimal DOM harness for actual app.js handlers. Layout/input behavior is checked in a browser.
 import * as presentation from '../../prototype/record-presentation.mjs';
@@ -10,9 +12,10 @@ import * as rules from '../../src/collection-rules.mjs';
 import { GENRES } from '../../src/genres.mjs';
 import * as inputs from '../../prototype/input-controls.mjs';
 
-export async function prototypeUI(fetch, { wishlist = false, owner = true } = {}) {
+export async function prototypeUI(fetch, { wishlist = false, owner = true, compact = false } = {}) {
   const elements = new Map();
   const downloads = [];
+  const media = { matches: compact, handlers: [], addEventListener(type, fn) { this.handlers.push(fn); } };
   const namedInputs = new Map();
   class Element {
     constructor(tag = 'div') {
@@ -39,7 +42,8 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true } = {}
     setAttribute(name, value) { this.attributes[name] = value; }
     setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; }
     querySelectorAll(selector) { return this.children.flatMap(child => [...(selector === 'button' && child.tagName === 'BUTTON' ? [child] : []), ...child.querySelectorAll(selector)]); }
-    focus() { this.focused = true; }
+    contains(node) { return this === node || this.children.some(child => child.contains(node)); }
+    focus() { this.focused = true; document.activeElement = this; }
     reset() { for (const input of [...namedInputs.values(), ...searchInputs.values()]) if (input.form === this) input.value = ''; this.dispatchEvent(new Event('reset')); }
     showModal() { this.open = true; }
     close() { this.open = false; this.dispatchEvent(new Event('close')); }
@@ -56,14 +60,16 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true } = {}
     const input = document.querySelector(name === 'albumYear' ? '#search-year' : `#search-${name}`);
     input.id = name === 'albumYear' ? 'search-year' : `search-${name}`; return [name, input];
   }));
-  const context = vm.createContext({ document, window: { addEventListener() {} }, fetch, Event, URL, Blob, setTimeout,
+  const context = vm.createContext({ document, window: { addEventListener() {}, matchMedia: () => media }, fetch, Event, URL, Blob, setTimeout,
     FormData: class { constructor(form) { return [...(form === document.querySelector('#search-form') ? searchInputs : namedInputs)].map(([name, input]) => [name, input.value]); } },
-    ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
+    createMobileRecords, bindBugReport, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
   const source = (await readFile(new URL('../../prototype/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   vm.runInContext(source, context);
   vm.runInContext(`applySession(${JSON.stringify(owner ? {role:'owner',csrfToken:'test-csrf'} : {role:'guest'})})`, context);
   return {
     downloads,
+    activeElement: () => document.activeElement,
+    resize: compact => { if (media.matches !== compact) { media.matches = compact; for (const fn of media.handlers) fn({ matches: compact }); } },
     start: () => document.handlers.DOMContentLoaded(),
     get: selector => document.querySelector(selector),
     run: script => vm.runInContext(script, context),

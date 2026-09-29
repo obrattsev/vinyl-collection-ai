@@ -1,3 +1,4 @@
+import { reportConfiguration, readRelease, createReportRepository, createReportService } from './bug-reports.mjs';
 import { createAuth, authConfiguration } from './auth.mjs';
 import { createWishlistRepository } from './google-sheets-wishlist.mjs';
 import { createWishlistService } from './wishlist-service.mjs';
@@ -26,6 +27,8 @@ async function start() {
     const wishlist = createWishlistRepository({ spreadsheetId: wishlistId, sheetName: wishlistSheet, keyFile });
     Object.assign(services, createWishlistService(wishlist, collection, serial), { transferRecord: createTransferService(wishlist, collection, serial) });
   }
+  const reportConfig = reportConfiguration(process.env);
+  if (reportConfig) services.createReport = createReportService(createReportRepository({ ...reportConfig, keyFile }), { version: await readRelease() });
   const server = createApp(services, { auth });
   server.on('error', () => {
     console.error('Не удалось запустить сервер. Проверьте доступность локального порта.');

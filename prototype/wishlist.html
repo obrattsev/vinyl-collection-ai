@@ -55,6 +55,13 @@
       <button id="add-record" type="button" hidden>Добавить пластинку</button>
       <p id="operation-status" role="status"></p>
       <p id="error" role="alert" hidden></p>
+      <div id="mobile-results" hidden>
+        <div class="mobile-sort">
+          <label for="mobile-sort-field">Сортировка</label>
+          <div class="mobile-sort-controls"><select id="mobile-sort-field"></select><button id="mobile-sort-direction" type="button" class="button-secondary" aria-label="Направление сортировки" disabled>↑</button></div>
+        </div>
+        <ul id="mobile-records" aria-label="Список записей"></ul>
+      </div>
       <div id="table-container" class="table-container" role="region" aria-label="Таблица wish-list" tabindex="0" hidden>
         <table>
           <caption class="visually-hidden">Wish-list</caption>
@@ -69,9 +76,27 @@
       </div>
     </section>
     <div class="results-summary">
-      <p id="status" role="status" aria-live="polite">Здесь появятся результаты поиска.</p>
+      <p id="status" tabindex="-1" role="status" aria-live="polite">Здесь появятся результаты поиска.</p>
       <button type="button" id="download-records" class="button-secondary" hidden disabled>Скачать csv</button>
     </div>
+    <button id="open-report" type="button" class="button-secondary">Сообщить об ошибке</button>
+    <dialog id="detail-dialog" aria-labelledby="detail-title">
+      <div class="detail-header"><h2 id="detail-title">Пластинка</h2><button id="close-detail" type="button" class="button-secondary">Закрыть</button></div>
+      <div id="detail-content"></div>
+      <div id="detail-actions" class="detail-actions"></div>
+    </dialog>
+    <p id="report-success" class="report-toast" role="status" aria-live="polite"></p>
+    <dialog id="report-dialog" aria-labelledby="report-title">
+      <div class="report-header"><h2 id="report-title">Сообщить об ошибке</h2><button id="close-report" type="button" class="button-secondary" aria-label="Закрыть">×</button></div>
+      <form id="report-form" novalidate>
+        <label for="report-text">Сообщение</label>
+        <p id="report-help" class="notice">Не указывайте пароли и личные данные</p>
+        <textarea id="report-text" rows="6" aria-describedby="report-help report-counter"></textarea>
+        <p id="report-counter" aria-live="polite">0 / 2000</p>
+        <p id="report-status" role="status"></p>
+        <div class="login-actions"><button id="clear-report" type="button" class="button-secondary">Очистить</button><button id="send-report" type="submit">Отправить</button></div>
+      </form>
+    </dialog>
     <dialog id="login-dialog" aria-labelledby="login-title">
       <h2 id="login-title">Вход</h2>
       <form id="login-form">

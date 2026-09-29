@@ -1,3 +1,4 @@
+import { validStoreUrl } from '../src/wishlist-record.mjs';
 import { normalize } from '../src/collection-rules.mjs';
 
 export const SORT_FIELDS = Object.freeze(['artist', 'album', 'genre', 'additionalGenre', 'label', 'albumYear', 'recordYear', 'editionType']);
@@ -17,12 +18,12 @@ export function sortRecords(records, sort = null) {
 }
 export function displayDate(value) {
   if (value == null || value === '') return '';
-  return value.split('-').reverse().join('-');
+  return value.split('-').reverse().join('.');
 }
 export function inputDate(value) {
   if (value == null || value === '') return null;
   // Invalid/partial input must fail the existing ISO calendar validator.
-  return /^\d{2}-\d{2}-\d{4}$/.test(value) ? value.split('-').reverse().join('-') : 'invalid';
+  return /^\d{2}\.\d{2}\.\d{4}$/.test(value) ? value.split('.').reverse().join('-') : 'invalid';
 }
 export function displayValue(field, value) {
   return field === 'purchaseDate' ? displayDate(value) : value ?? '';
@@ -36,4 +37,13 @@ function csvCell(value) {
 export function recordsCsv(records, columns) {
   return '\uFEFF' + [columns.map(([, title]) => csvCell(title)).join(';'),
     ...records.map(record => columns.map(([field]) => csvCell(displayValue(field, record[field]))).join(';'))].join('\r\n') + '\r\n';
+}
+
+// URL validation for stored data remains unchanged; only HTTP(S) becomes a link.
+export function renderStoreLink(document, target, value, title) {
+  if (validStoreUrl(value) && ['http:', 'https:'].includes(new URL(value).protocol)) {
+    const link = document.createElement('a'); link.href = value;
+    link.textContent = title; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    target.append(link);
+  } else target.textContent = value ?? '';
 }

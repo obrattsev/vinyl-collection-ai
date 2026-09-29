@@ -15,7 +15,7 @@ function exhaust(auth, req, kind, count) {
   assert.throws(() => auth.limit(req, kind, response), { message: 'RATE_LIMITED', status: 429 });
 }
 
-for (const [kind, count] of [['login', 5], ['read', 60]]) {
+for (const [kind, count] of [['login', 5], ['read', 60], ['report', 3]]) {
   test(`${kind}: untrusted TCP peers cannot rotate forwarded headers to bypass limits`, () => {
     const auth = testAuth(production);
     for (let i = 0; i < count; i++) {

@@ -2,10 +2,10 @@ export const formatYearInput = value => /^[0-9]{0,4}$/.test(value) ? value : nul
 
 // Input constraints only; calendar validity and record rules remain in the model.
 export function formatDateInput(value) {
-  if (!/^[0-9-]*$/.test(value)) return null;
-  const digits = value.replaceAll('-', '');
+  if (!/^[0-9.]*$/.test(value)) return null;
+  const digits = value.replaceAll('.', '');
   if (digits.length > 8) return null;
-  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join('-');
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join('.');
 }
 
 export function formatPriceInput(value) {
@@ -34,8 +34,8 @@ export function bindInputConstraint(input, format) {
     }
     // Backspace/Delete across an automatic date separator must remove a digit too.
     if (start === end && format === formatDateInput) {
-      const backward = event.inputType === 'deleteContentBackward' && input.value[start - 1] === '-';
-      const forward = event.inputType === 'deleteContentForward' && input.value[start] === '-';
+      const backward = event.inputType === 'deleteContentBackward' && input.value[start - 1] === '.';
+      const forward = event.inputType === 'deleteContentForward' && input.value[start] === '.';
       if (backward || forward) {
         event.preventDefault();
         const from = backward ? start - 2 : start;

@@ -56,12 +56,26 @@ export function createLimiter({ limit, total, windowMs, now = Date.now }) {
     peers.set(key, count + 1); global.count++; return 0;
   };
 }
+// Separate sliding windows for reports; at most 50 entries, no persisted IPs.
+export function createReportLimiter({ now = Date.now } = {}) {
+  let attempts = [];
+  return ip => {
+    const time = now();
+    attempts = attempts.filter(attempt => time - attempt.time < 3600000);
+    const client = attempts.filter(attempt => attempt.ip === ip && time - attempt.time < 900000);
+    const retryAt = Math.max(client.length >= 3 ? client[0].time + 900000 : 0,
+      attempts.length >= 50 ? attempts[0].time + 3600000 : 0);
+    if (retryAt > time) return Math.ceil((retryAt - time) / 1000);
+    attempts.push({ ip, time }); return 0;
+  };
+}
 export function createAuth({ passwordHash, origin, production = false, now = Date.now } = {}) {
   const match = pattern.exec(passwordHash || '');
   if (!match || (production && !origin?.startsWith('https://'))) throw Error('Invalid authentication configuration');
   const sessions = new Map(); let verifying = false;
   const cookieName = production ? '__Host-vinyl_session' : 'vinyl_session';
   const loginLimit = createLimiter({ limit: 5, total: 30, windowMs: 15 * 60000, now });
+  const reportLimit = createReportLimiter({ now });
   const readLimit = createLimiter({ limit: 60, total: 300, windowMs: 60000, now });
   const cookie = (id, seconds) => `${cookieName}=${id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${seconds}${production ? '; Secure' : ''}`;
   function idFrom(req) {
@@ -91,7 +105,7 @@ export function createAuth({ passwordHash, origin, production = false, now = Dat
       if (req.headers['x-csrf-token'] !== s.csrf) throw new OperationError(403, 'FORBIDDEN');
     },
     limit(req, kind, res) {
-      const retry = (kind === 'login' ? loginLimit : readLimit)(clientIP(req, production));
+      const retry = (kind === 'report' ? reportLimit : kind === 'login' ? loginLimit : readLimit)(clientIP(req, production));
       if (retry) { res.setHeader('Retry-After', retry); throw new OperationError(429, 'RATE_LIMITED'); }
     },
     async login(req, res, input) {

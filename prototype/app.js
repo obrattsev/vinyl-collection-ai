@@ -1,4 +1,6 @@
-import { SORT_FIELDS, sortRecords, inputDate, displayValue, recordsCsv } from './record-presentation.mjs';
+import { createMobileRecords } from './mobile-records.mjs';
+import { bindBugReport } from './bug-report-ui.mjs';
+import { SORT_FIELDS, sortRecords, inputDate, displayValue, recordsCsv, renderStoreLink } from './record-presentation.mjs';
 import { PUBLIC_FIELDS, validatePublicRecords } from '../src/public-record.mjs';
 import { validateCollection } from '../src/collection-record.mjs';
 import { validateWishlist, validateWishlistDraft, wishlistFieldErrors, wishlistRevision } from '../src/wishlist-record.mjs';
@@ -44,10 +46,15 @@ let activeSort = null;
 let viewRecords = [];
 let displayedRecords = [];
 const downloadButton = document.querySelector('#download-records');
-function clearDisplayed() {
+function clearDisplayed(forgetFocus = false) {
+  mobileView.reset(forgetFocus);
   viewRecords = []; displayedRecords = []; downloadButton.disabled = true; downloadButton.hidden = true;
 }
 function updateSortHeadings() {
+  mobileSort.value = activeSort?.field || '';
+  mobileDirection.disabled = !activeSort;
+  mobileDirection.textContent = activeSort?.direction === 'desc' ? '↓' : '↑';
+  mobileDirection.setAttribute('aria-label', !activeSort ? 'Базовая сортировка: исполнитель, затем год альбома по возрастанию' : activeSort.direction === 'asc' ? 'По возрастанию. Переключить на убывание' : 'По убыванию. Переключить на возрастание');
   for (const field of SORT_FIELDS) {
     const direction = activeSort?.field === field ? activeSort.direction : null;
     document.querySelector(`#sort-heading-${field}`).setAttribute('aria-sort', direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : 'none');
@@ -69,7 +76,7 @@ downloadButton.addEventListener('click', () => {
 });
 
 function resetResults() {
-  clearDisplayed(); lastCriteria = {}; activeSort = null; updateSortHeadings();
+  clearDisplayed(true); lastCriteria = {}; activeSort = null; updateSortHeadings();
   // Invalidates in-flight reads without clearing write-recovery requirements.
   loadVersion++;
   loading = false;
@@ -155,6 +162,7 @@ async function showCollection(criteria = {}) {
       loading = false;
       button.disabled = false;
       controls.disabled = false;
+      mobileView.restoreFocus();
     }
   }
 }
@@ -165,9 +173,14 @@ function renderRecords(records) {
   const fragment = document.createDocumentFragment();
   for (const record of displayedRecords) {
     const row = document.createElement('tr');
-    for (const field of [...fields, ...(owner && isWishlist ? ['storeUrl'] : [])]) {
+    for (const field of [...fields, ...(owner ? isWishlist ? ['storeUrl'] : purchaseFields : [])]) {
       const cell = document.createElement('td');
-      cell.textContent = record[field] ?? '';
+      if (field === 'storeUrl' || field === 'note') {
+        const content = document.createElement('span'); content.className = field === 'note' ? 'table-note' : 'table-store-link';
+        if (field === 'storeUrl') renderStoreLink(document, content, record[field], 'Открыть в магазине ↗');
+        else content.textContent = record[field] ?? '';
+        cell.append(content);
+      } else cell.textContent = displayValue(field, record[field]);
       row.append(cell);
     }
     if (!owner) { fragment.append(row); continue; }
@@ -193,6 +206,7 @@ function renderRecords(records) {
   }
   rows.append(fragment);
   container.hidden = false;
+  mobileView.render(displayedRecords);
 }
 
 const collectionLabels = { artist:'Исполнитель', album:'Альбом', genre:'Жанр', additionalGenre:'Дополнительный жанр', label:'Лейбл', albumYear:'Год альбома', recordYear:'Год пластинки', editionType:'Тип издания', note:'Примечание', purchaseDate:'Дата покупки', purchaseStore:'Магазин покупки', purchasePrice:'Цена покупки (руб.)' };
@@ -230,17 +244,18 @@ for (const [name, title] of Object.entries(isWishlist ? { ...labels, ...Object.f
   const label = document.createElement('label'); label.textContent = title + (['artist','album','albumYear'].includes(name) ? ' *' : '');
   const choices = name === 'editionType' ? ['Оригинал', 'Переиздание']
     : ['genre', 'additionalGenre'].includes(name) ? GENRES : null;
-  const input = document.createElement(choices ? 'select' : 'input');
+  const input = document.createElement(choices ? 'select' : name === 'note' ? 'textarea' : 'input');
   input.name = name;
   input.id = `record-${name}`;
   formInputs.set(name, input);
   if (choices) {
     for (const value of ['', ...choices]) { const option = document.createElement('option'); option.value = value; option.textContent = value || 'Неизвестно'; input.append(option); }
   } else {
-    input.type = 'text';
+    if (name === 'note') input.rows = 4;
+    else input.type = 'text';
     if (name.endsWith('Year')) { input.inputMode = 'numeric'; input.placeholder = 'YYYY'; input.maxLength = 4; }
     if (name === 'purchaseDate') {
-      input.placeholder = 'DD-MM-YYYY'; input.inputMode = 'numeric'; input.maxLength = 10;
+      input.placeholder = 'DD.MM.YYYY'; input.inputMode = 'numeric'; input.maxLength = 10;
     }
     if (name === 'purchasePrice') { input.inputMode = 'decimal'; input.placeholder = '0 — бесплатно'; }
   }
@@ -301,7 +316,7 @@ function setFormMode(source = null) {
 }
 function renderFieldErrors(errors = {}) {
   for (const [field, input] of formInputs) {
-    const message = field === 'purchaseDate' && errors[field] ? 'Укажите существующую дату DD-MM-YYYY.' : errors[field] ?? '';
+    const message = field === 'purchaseDate' && errors[field] ? 'Укажите существующую дату DD.MM.YYYY.' : errors[field] ?? '';
     input.setAttribute('aria-invalid', message ? 'true' : 'false');
     fieldMessages.get(field).textContent = message;
     fieldMessages.get(field).hidden = !message;
@@ -321,7 +336,9 @@ function displayRecord(target, record, displayLabels = labels) {
   const list = document.createElement('dl');
   for (const [field, title] of Object.entries(displayLabels)) {
     const term = document.createElement('dt'); term.textContent = title;
-    const value = document.createElement('dd'); value.textContent = displayValue(field, record[field]);
+    const value = document.createElement('dd');
+    if (field === 'storeUrl' && target === document.querySelector('#detail-content')) renderStoreLink(document, value, record[field], 'Открыть ↗');
+    else value.textContent = displayValue(field, record[field]);
     if (editSource && target === preview && record[field] !== editSource[field]) {
       value.className = 'changed-value';
       const before = document.createElement('span'); before.className = 'previous-value';
@@ -417,6 +434,7 @@ editButton.addEventListener('click', editDraft);
 document.querySelector('#cancel-record').addEventListener('click', () => { if (!writing) dialog.close(); });
 dialog.addEventListener('cancel', event => { if (writing) event.preventDefault(); });
 dialog.addEventListener('close', () => {
+  setTimeout(() => mobileView.restoreFocus(), 0);
   dialogRun++;
   checking = false;
   previewButton.disabled = false; recordFields.disabled = false;
@@ -545,7 +563,7 @@ confirmButton.addEventListener('click', async () => {
       requireRefresh(); editButton.hidden = true;
       dialog.close(); operationStatus.textContent = recordError.textContent; await refreshBoth();
     }
-  } finally { writing = false; button.disabled = controls.disabled = false; confirmButton.disabled = editButton.disabled = false; }
+  } finally { writing = false; button.disabled = controls.disabled = false; confirmButton.disabled = editButton.disabled = false; mobileView.restoreFocus(); }
 });
 const deleteDialog = document.querySelector('#delete-dialog');
 const deletePreview = document.querySelector('#delete-preview');
@@ -555,7 +573,7 @@ let selected = null;
 function openDelete(record) { if (!owner || authBusy || needsRefresh || writing) return; selected = record; displayRecord(deletePreview, record); deleteError.textContent = ''; confirmDelete.disabled = false; deleteDialog.showModal(); }
 document.querySelector('#cancel-delete').addEventListener('click', () => { if (!writing) deleteDialog.close(); });
 deleteDialog.addEventListener('cancel', event => { if (writing) event.preventDefault(); });
-deleteDialog.addEventListener('close', () => { selected = null; });
+deleteDialog.addEventListener('close', () => { selected = null; setTimeout(() => mobileView.restoreFocus(), 0); });
 confirmDelete.addEventListener('click', async () => {
   if (!owner || authBusy || writing || !selected || needsRefresh) return;
   writing = true; invalidateReads(); confirmDelete.disabled = true;
@@ -567,7 +585,7 @@ confirmDelete.addEventListener('click', async () => {
     deleteError.textContent = messageFor(error.error);
     if (error.error === 'RESULT_UNCONFIRMED') requireRefresh();
     if (error.error === 'RECORD_CHANGED' && error.record) { selected = error.record; displayRecord(deletePreview, selected); confirmDelete.disabled = false; }
-  } finally { writing = false; button.disabled = controls.disabled = false; }
+  } finally { writing = false; button.disabled = controls.disabled = false; mobileView.restoreFocus(); }
 });
 
 function invalidateReads() {
@@ -634,6 +652,7 @@ function applySession(session) {
   document.querySelector('#add-record').hidden = !owner;
   document.querySelector('#actions-heading').hidden = !owner;
   if (isWishlist) document.querySelector('#store-heading').hidden = !owner;
+  else for (const field of purchaseFields) document.querySelector(`#heading-${field}`).hidden = !owner;
   authStatus.textContent = '';
 }
 async function checkSession() {
@@ -684,5 +703,27 @@ logoutButton.addEventListener('click', async () => {
   } catch { authStatus.textContent = 'Выход не подтверждён. Повторите выход.'; }
   finally { authBusy = false; logoutButton.disabled = false; }
 });
+const mobileSort = document.querySelector('#mobile-sort-field');
+const mobileDirection = document.querySelector('#mobile-sort-direction');
+for (const field of ['', ...SORT_FIELDS]) {
+  const option = document.createElement('option'); option.value = field; option.textContent = field ? labels[field] : 'По умолчанию'; mobileSort.append(option);
+}
+mobileSort.addEventListener('change', () => {
+  if (loading || writing) { updateSortHeadings(); return; }
+  activeSort = SORT_FIELDS.includes(mobileSort.value) ? { field: mobileSort.value, direction: 'asc' } : null;
+  updateSortHeadings(); if (viewRecords.length) renderRecords(viewRecords);
+});
+mobileDirection.addEventListener('click', () => {
+  if (loading || writing || !activeSort) return;
+  activeSort = { ...activeSort, direction: activeSort.direction === 'asc' ? 'desc' : 'asc' };
+  updateSortHeadings(); if (viewRecords.length) renderRecords(viewRecords);
+});
+const anyDialogOpen = () => [dialog, deleteDialog, loginDialog, document.querySelector('#report-dialog')].some(item => item.open);
+const mobileView = createMobileRecords({ document, media: window.matchMedia('(max-width: 1120px)'), labels, publicFields: PUBLIC_FIELDS,
+  display: displayRecord, isOwner: () => owner, canAct: () => owner && !authBusy && !needsRefresh && !writing && !loading,
+  isBusy: () => loading || writing || authBusy || anyDialogOpen(), openEdit, openDelete, openTransfer, wishlist: isWishlist, desktopResults: container });
+bindBugReport({ document, fetch, section: isWishlist ? 'wishlist' : 'collection',
+  canOpen: () => !writing && !authBusy && !anyDialogOpen() && !document.querySelector('#detail-dialog').open });
+
 document.addEventListener('DOMContentLoaded', async () => { resetResults(); await checkSession(); });
 window.addEventListener('focus', () => { if (!authBusy && !writing) void checkSession(); });

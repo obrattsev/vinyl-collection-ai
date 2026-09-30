@@ -9,7 +9,7 @@ for (const wishlist of [false, true]) test(`guest ${wishlist ? 'wishlist' : 'col
   const calls = []; const source = wishlist ? wish : record;
   const ui = await prototypeUI(async url => { calls.push(url); return response(url === '/api/auth/session' ? { role: 'guest' } : publicRecords([source])); }, { owner: false, wishlist });
   await ui.start(); assert.equal(ui.get('#table-container').hidden, true);
-  assert.deepEqual(calls, ['/api/auth/session']);
+  assert.deepEqual(calls, ['/assets/data/music-quotes.json', '/api/auth/session']);
   assert.equal(ui.get('#add-record').hidden, true); assert.equal(ui.get('#actions-heading').hidden, true);
   assert.equal(ui.get('#auth-status').textContent, '');
   assert.equal(ui.get('#records').querySelectorAll('button').length, 0);

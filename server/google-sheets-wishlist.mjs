@@ -3,7 +3,7 @@ import { mapValues, createSheetsRepository } from './google-sheets.mjs';
 export const WISHLIST_COLUMNS = Object.freeze({
   'ID': 'id', 'Исполнитель': 'artist', 'Альбом': 'album', 'Жанр': 'genre',
   'Дополнительный жанр': 'additionalGenre', 'Лейбл': 'label', 'Год альбома': 'albumYear',
-  'Год пластинки': 'recordYear', 'Тип издания': 'editionType', 'Примечание': 'note', 'Ссылка на онлайн-магазин': 'storeUrl'
+  'Год пластинки': 'recordYear', 'Тип издания': 'editionType', 'Примечание': 'note', 'Ссылка на онлайн-магазин': 'storeUrl', 'Обложка ID': 'coverId'
 });
 export class WishlistSourceError extends Error {
   constructor() { super('WISHLIST_SOURCE_UNAVAILABLE'); this.name = 'WishlistSourceError'; }

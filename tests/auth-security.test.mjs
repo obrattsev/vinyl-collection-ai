@@ -44,12 +44,12 @@ test('all write routes reject guests and forged sessions before any business rea
   }
   assert.equal(app.reads, 0); assert.equal(app.writes, 0);
 });
-test('guest projection has exactly nine fields, no IDs; both lists remain searchable', async t => {
+test('guest projection has metadata plus cover/favorite, no record IDs; both lists remain searchable', async t => {
   const app = await start(t);
   for (const [path, source] of [['/api/collection', record], ['/api/wishlist', wish]]) {
     const res = await app.call(path); const data = await res.json();
     assert.equal(res.headers.get('x-access-role'), 'guest');
-    assert.deepEqual(Object.keys(data[0]).sort(), [...PUBLIC_FIELDS].sort());
+    assert.deepEqual(Object.keys(data[0]).sort(), [...PUBLIC_FIELDS, 'cover', ...(path === '/api/collection' ? ['favorite'] : [])].sort());
     assert.deepEqual(validatePublicRecords(data), publicRecords([source]));
     assert.equal(searchCollection(data, { artist: source.artist }).length, 1);
     for (const field of ['id', 'purchaseDate', 'purchasePrice', 'purchaseStore', 'storeUrl']) assert.ok(!Object.hasOwn(data[0], field));

@@ -6,9 +6,16 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { CollectionDataError, validateCollection } from '../src/collection-record.mjs';
 import { CollectionSourceError } from './google-sheets-collection.mjs';
+import { COVER_MAX_BYTES } from './cover-storage.mjs';
+import { UUID } from '../src/base-record.mjs';
 
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
+  ['/src/cover-record.mjs', ['../src/cover-record.mjs', 'text/javascript; charset=utf-8']],
+  ['/src/daily-quote.mjs', ['../src/daily-quote.mjs', 'text/javascript; charset=utf-8']],
+  ['/assets/cover-ui.mjs', ['../prototype/cover-ui.mjs', 'text/javascript; charset=utf-8']],
+  ['/assets/daily-quote-ui.mjs', ['../prototype/daily-quote-ui.mjs', 'text/javascript; charset=utf-8']],
+  ['/assets/data/music-quotes.json', ['../prototype/data/music-quotes.json', 'application/json; charset=utf-8']],
   ['/assets/mobile-records.mjs', ['../prototype/mobile-records.mjs', 'text/javascript; charset=utf-8']],
   ['/src/bug-report.mjs', ['../src/bug-report.mjs', 'text/javascript; charset=utf-8']],
   ['/assets/bug-report-ui.mjs', ['../prototype/bug-report-ui.mjs', 'text/javascript; charset=utf-8']],
@@ -42,7 +49,8 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport }, { auth } = {}) {
+export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite }, { auth, quoteSource } = {}) {
+  let coverUploading = false;
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -85,6 +93,33 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       if (req.method === 'GET' && path.startsWith('/api/') && !session) auth?.limit(req, 'read', res);
       const visible = records => session ? records : publicRecords(records);
       res.setHeader('X-Access-Role', session ? 'owner' : 'guest');
+      const media = path.match(/^\/media\/covers\/([^/]+)\/(thumb\.webp|image\.webp)$/);
+      if (media && ['GET', 'HEAD'].includes(req.method)) {
+        if (!coverStorage || !UUID.test(media[1])) throw new OperationError(404, 'NOT_FOUND');
+        const bytes = await coverStorage.read(media[1], media[2]);
+        res.writeHead(200, { 'Content-Type': 'image/webp', 'Content-Length': bytes.length });
+        res.end(req.method === 'HEAD' ? undefined : bytes); return;
+      }
+      const cover = path.match(/^\/api\/(collection|wishlist)\/([^/]+)\/cover$/);
+      if (cover) {
+        if (!['PUT', 'DELETE'].includes(req.method)) { res.setHeader('Allow', 'PUT, DELETE'); throw new OperationError(405, 'METHOD_NOT_ALLOWED'); }
+        if (!changeCover || !coverStorage) throw new OperationError(503, 'COVERS_NOT_CONFIGURED');
+        if (!UUID.test(cover[2]) || !/^"[a-f0-9]{64}"$/.test(req.headers['if-match'] || '')) throw new OperationError(400, 'INVALID_REQUEST');
+        if (coverUploading) throw new OperationError(503, 'COVER_BUSY');
+        coverUploading = true;
+        try {
+          const bytes = req.method === 'DELETE' ? null : await readCover(req);
+          json(res, 200, await changeCover(cover[1], cover[2], req.headers['if-match'], bytes));
+        } finally { coverUploading = false; }
+        return;
+      }
+      const favorite = path.match(/^\/api\/collection\/([^/]+)\/favorite$/);
+      if (favorite) {
+        if (req.method !== 'PATCH') { res.setHeader('Allow', 'PATCH'); throw new OperationError(405, 'METHOD_NOT_ALLOWED'); }
+        if (!changeFavorite) throw new OperationError(503, 'NOT_CONFIGURED');
+        json(res, 200, await changeFavorite(favorite[1], req.headers['if-match'], await readBody(req))); return;
+      }
+      if (quoteSource && path === '/assets/data/music-quotes.json' && req.method === 'GET') { json(res, 200, quoteSource); return; }
       if (path === '/api/wishlist' || path.startsWith('/api/wishlist/')) {
         if (!getWishlist) { json(res, 503, { error: 'WISHLIST_NOT_CONFIGURED' }); return; }
         if (path === '/api/wishlist') {
@@ -146,6 +181,21 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       json(res, 500, { error: code });
     }
   });
+}
+
+async function readCover(req) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(req.headers['content-type']?.split(';')[0])) throw new OperationError(415, 'UNSUPPORTED_COVER_TYPE');
+  if (Number(req.headers['content-length']) > COVER_MAX_BYTES) throw new OperationError(413, 'COVER_TOO_LARGE');
+  const chunks = []; let length = 0;
+  req.setTimeout(15000, () => req.destroy());
+  try {
+    for await (const chunk of req) {
+      length += chunk.length;
+      if (length > COVER_MAX_BYTES) throw new OperationError(413, 'COVER_TOO_LARGE');
+      chunks.push(chunk);
+    }
+  } finally { req.setTimeout(0); }
+  return Buffer.concat(chunks);
 }
 
 async function readBody(req, maximum = 65536) {

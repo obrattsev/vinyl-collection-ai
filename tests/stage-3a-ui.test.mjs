@@ -45,7 +45,7 @@ for (const wishlist of [false,true]) {
   test(`${wishlist} UI edit full preview, nullable values, legacy genres, UUID/If-Match and active search`, async () => {
     let stored = { ...source, genre: 'Legacy genre' }; let sent;
     const ui = await prototypeUI(async (url, options = {}) => {
-      if (options.method === 'PUT') { sent = { url, ...options }; stored = { ...JSON.parse(options.body), id: stored.id }; return response(stored); }
+      if (options.method === 'PUT') { sent = { url, ...options }; stored = { ...stored, ...JSON.parse(options.body), id: stored.id }; return response(stored); }
       return response(url === '/api/collection' && wishlist ? [] : [stored]);
     }, { wishlist });
     ui.searchInput('album').value = source.album;
@@ -76,7 +76,7 @@ for (const wishlist of [false,true]) {
         attempts++;
         if (attempts === 1) { stored = { ...stored, label:'Changed externally' }; return {ok:false,json:async()=>({error:'RECORD_CHANGED',record:stored})}; }
         assert.equal(options.headers['If-Match'], await revision(stored));
-        stored = { ...JSON.parse(options.body), id: stored.id }; return response(stored);
+        stored = { ...stored, ...JSON.parse(options.body), id: stored.id }; return response(stored);
       }
       return response(wishlist && url === '/api/collection' ? [] : [stored]);
     }, {wishlist});
@@ -146,7 +146,7 @@ test('edit preserves untouched multiline text and existing price precision witho
 test('edit PUT and an older GET cannot restore stale results or CSV', async () => {
   let stored = { ...record }; const delayed = deferred(); let delayNext = false;
   const ui = await prototypeUI(async (url, options = {}) => {
-    if (options.method === 'PUT') { stored = { ...JSON.parse(options.body), id: record.id }; return response(stored); }
+    if (options.method === 'PUT') { stored = { ...stored, ...JSON.parse(options.body), id: record.id }; return response(stored); }
     if (delayNext) { delayNext = false; return delayed.promise; }
     return response([stored]);
   });

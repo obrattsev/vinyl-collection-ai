@@ -18,8 +18,10 @@ for (const wishlist of [false,true]) test(`${wishlist} Sheets update targets cur
     for(const {updateCells:update} of options.data.requests){
       assert.equal(update.fields,'userEnteredValue'); assert.equal(update.range.startRowIndex,3);
       const col=update.range.startColumnIndex; assert.notEqual(headers[col],'ID');assert.notEqual(headers[col],'Unknown');
+      // Metadata writes must never reattach an old cover after a delayed request.
+      assert.notEqual(headers[col], 'Обложка ID'); assert.notEqual(headers[col], 'Избранное');
       const cell=update.rows[0].values[0].userEnteredValue;
-      assert.ok(!cell||!Object.hasOwn(cell,'formulaValue')); values[3][col]=cell?.stringValue??cell?.numberValue??null;
+      assert.ok(!cell||!Object.hasOwn(cell,'formulaValue')); values[3][col]=cell?.stringValue??cell?.numberValue??cell?.boolValue??null;
     }
     return {data:{}};
   }})};

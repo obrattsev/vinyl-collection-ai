@@ -1,4 +1,6 @@
 import { createMobileRecords } from './mobile-records.mjs';
+import { coverControl, favoriteControl, createCoverDialog, recordCover } from './cover-ui.mjs';
+import { bindDailyQuote } from './daily-quote-ui.mjs';
 import { bindBugReport } from './bug-report-ui.mjs';
 import { SORT_FIELDS, sortRecords, inputDate, displayValue, recordsCsv, renderStoreLink } from './record-presentation.mjs';
 import { PUBLIC_FIELDS, validatePublicRecords } from '../src/public-record.mjs';
@@ -12,7 +14,7 @@ import { searchCollection, validateSearchCriteria, checkAddition, isPotentialDup
 
 const isWishlist = document.body?.dataset.section === 'wishlist';
 const endpoint = isWishlist ? '/api/wishlist' : '/api/collection';
-const readCriteria = () => Object.fromEntries(new FormData(form));
+const readCriteria = () => ({ ...Object.fromEntries(new FormData(form)), ...(!isWishlist ? { favoriteOnly: Boolean(document.querySelector('#favorite-only').checked) } : {}) });
 const validateCriteria = isWishlist ? validateWishlistCriteria : validateSearchCriteria;
 const validateRecords = isWishlist ? validateWishlist : validateCollection;
 const searchRecords = isWishlist ? searchWishlist : searchCollection;
@@ -76,6 +78,7 @@ downloadButton.addEventListener('click', () => {
 });
 
 function resetResults() {
+  if (!isWishlist) document.querySelector('#favorite-only').checked = false;
   clearDisplayed(true); lastCriteria = {}; activeSort = null; updateSortHeadings();
   // Invalidates in-flight reads without clearing write-recovery requirements.
   loadVersion++;
@@ -103,7 +106,8 @@ form.addEventListener('submit', event => {
   return showCollection(criteria);
 });
 
-button.addEventListener('click', () => { if (!writing) return showCollection(); });
+button.addEventListener('click', () => { if (!writing) { if (!isWishlist) document.querySelector('#favorite-only').checked = false; return showCollection(); } });
+if (!isWishlist) document.querySelector('#favorite-only').addEventListener('change', () => { if (!writing && !loading) return showCollection(readCriteria()); });
 
 async function showCollection(criteria = {}) {
   const version = ++loadVersion;
@@ -124,7 +128,7 @@ async function showCollection(criteria = {}) {
     const records = await response.json();
     if (version !== loadVersion) return;
     if (response.headers?.get('X-Access-Role') === 'guest' && owner) { applySession({ role: 'guest' }); await showCollection(criteria); return; }
-    (owner ? validateRecords : validatePublicRecords)(records);
+    if (owner) validateRecords(records); else validatePublicRecords(records, isWishlist);
     const results = searchRecords(records, criteria);
     lastCriteria = { ...criteria };
     needsRefresh = owner && needsBothRefresh;
@@ -167,12 +171,26 @@ async function showCollection(criteria = {}) {
   }
 }
 
+const desktopQuickControls = new Map();
+const presentationKey = record => record.id?.toLowerCase() || record;
 function renderRecords(records) {
   viewRecords = records; displayedRecords = sortRecords(records, activeSort);
+  desktopQuickControls.clear();
+  const showQuickColumn = !isWishlist || owner || records.some(record => recordCover(record));
+  document.querySelector('#quick-heading').hidden = !showQuickColumn;
   rows.replaceChildren(); downloadButton.disabled = !displayedRecords.length; downloadButton.hidden = !displayedRecords.length;
   const fragment = document.createDocumentFragment();
   for (const record of displayedRecords) {
     const row = document.createElement('tr');
+    const quickCell = document.createElement('td'); quickCell.className = 'quick-cell'; quickCell.hidden = !showQuickColumn;
+    const quick = document.createElement('div'); quick.className = 'record-quick-controls';
+    const favorite = isWishlist ? null : favoriteControl(document, record, owner, toggleFavorite);
+    const cover = coverControl(document, record, owner, openCover);
+    if (favorite) { favorite.disabled = owner && needsRefresh; quick.append(favorite); }
+    if (cover) { cover.disabled = owner && needsRefresh; quick.append(cover); }
+    if (quick.children.length) quickCell.append(quick);
+    desktopQuickControls.set(presentationKey(record), { favorite, cover });
+    row.append(quickCell);
     for (const field of [...fields, ...(owner ? isWishlist ? ['storeUrl'] : purchaseFields : [])]) {
       const cell = document.createElement('td');
       if (field === 'storeUrl' || field === 'note') {
@@ -180,6 +198,8 @@ function renderRecords(records) {
         if (field === 'storeUrl') renderStoreLink(document, content, record[field], 'Открыть в магазине ↗');
         else content.textContent = record[field] ?? '';
         cell.append(content);
+      } else if (field === 'album') {
+        cell.className = 'record-album'; cell.textContent = record.album;
       } else cell.textContent = displayValue(field, record[field]);
       row.append(cell);
     }
@@ -288,7 +308,7 @@ function readDraft() {
     if (formInputs.get(field).value === initial.controlValue) input[field] = initial.storedValue;
   }
   if (transferSource) {
-    const { id, storeUrl, ...common } = transferSource;
+    const { id, storeUrl, coverId, ...common } = transferSource;
     return { ...common, ...input };
   }
   return input;
@@ -348,6 +368,20 @@ function displayRecord(target, record, displayLabels = labels) {
     list.append(term, value);
   }
   target.replaceChildren(list);
+  if (target === document.querySelector('#detail-content')) {
+    const media = document.createElement('div'); media.className = 'detail-media';
+    const cover = recordCover(record);
+    if (cover) { const image = document.createElement('img'); image.src = cover.imageUrl; image.alt = `Обложка: ${record.artist} — ${record.album}`; image.addEventListener('error', () => { image.hidden = true; }); media.append(image); }
+    if (owner) {
+      for (const title of cover ? ['Заменить', 'Удалить'] : ['Добавить обложку']) {
+        const action = document.createElement('button'); action.type = 'button'; action.className = 'button-secondary'; action.textContent = title;
+        action.setAttribute('aria-label', title === 'Добавить обложку' ? title : `${title} обложку`);
+        action.addEventListener('click', () => openCover(record, action, title === 'Удалить')); media.append(action);
+      }
+    }
+    if (!isWishlist) media.append(favoriteControl(document, record, owner, toggleFavorite));
+    if (media.children.length) target.append(media);
+  }
 }
 async function loadRecords(url = endpoint) {
   const version = authVersion;
@@ -641,6 +675,7 @@ function applySession(session) {
     authVersion++; dialogRun++;
     resetResults();
     dialog.close(); deleteDialog.close();
+    coverDialog.reset();
     preview.replaceChildren(); deletePreview.replaceChildren();
     document.querySelector('#transfer-source').replaceChildren();
     for (const field of ['artist', 'album', 'label']) document.querySelector(`#suggest-${field}`).replaceChildren();
@@ -718,12 +753,69 @@ mobileDirection.addEventListener('click', () => {
   activeSort = { ...activeSort, direction: activeSort.direction === 'asc' ? 'desc' : 'asc' };
   updateSortHeadings(); if (viewRecords.length) renderRecords(viewRecords);
 });
-const anyDialogOpen = () => [dialog, deleteDialog, loginDialog, document.querySelector('#report-dialog')].some(item => item.open);
+const anyDialogOpen = () => [dialog, deleteDialog, loginDialog, document.querySelector('#report-dialog'), document.querySelector('#cover-dialog')].some(item => item.open);
 const mobileView = createMobileRecords({ document, media: window.matchMedia('(max-width: 1120px)'), labels, publicFields: PUBLIC_FIELDS,
   display: displayRecord, isOwner: () => owner, canAct: () => owner && !authBusy && !needsRefresh && !writing && !loading,
-  isBusy: () => loading || writing || authBusy || anyDialogOpen(), openEdit, openDelete, openTransfer, wishlist: isWishlist, desktopResults: container });
+  isBusy: () => loading || writing || authBusy || anyDialogOpen(), openEdit, openDelete, openTransfer, wishlist: isWishlist, desktopResults: container,
+  cover: record => coverControl(document, record, owner, openCover), favorite: record => favoriteControl(document, record, owner, toggleFavorite) });
+const canPresentAct = () => owner && !writing && !loading && !authBusy && !needsRefresh;
+let coverFocusRecord = null;
+function restoreQuickFocus(record, kind) {
+  mobileView.restoreFocus(kind);
+  if (!window.matchMedia('(max-width: 1120px)').matches) {
+    const control = desktopQuickControls.get(presentationKey(record))?.[kind];
+    if (control && rows.contains(control) && !control.disabled && !container.hidden) control.focus();
+  }
+}
+function openCover(record, trigger, deleting = false) {
+  if (writing || loading || authBusy || anyDialogOpen()) return;
+  coverFocusRecord = record;
+  mobileView.suspendDetail(record);
+  coverDialog.open(record);
+  if (deleting && owner) document.querySelector('#cover-delete-confirmation').hidden = false;
+}
+function replacePresentation(record) {
+  const updated = viewRecords.map(value => value.id === record.id ? record : value);
+  renderRecords(searchRecords(updated, lastCriteria));
+  container.hidden = !displayedRecords.length;
+  status.textContent = `Показано записей: ${displayedRecords.length}`;
+}
+async function changePresentation(record, suffix, method, body, contentType) {
+  if (!canPresentAct()) throw Error('Обновите список перед изменением.');
+  const epoch = authVersion;
+  writing = true; invalidateReads();
+  try {
+    const updated = await writeRequest(`${endpoint}/${record.id}/${suffix}`, { method,
+      headers: { 'If-Match': await revisionFor(record), ...(contentType ? { 'Content-Type': contentType } : {}) }, ...(body !== undefined ? { body } : {}) });
+    if (!owner || epoch !== authVersion) throw Error('Сеанс изменился. Обновите список.');
+    try { validateRecords([updated]); if (updated.id !== record.id) throw Error('ID'); }
+    catch { throw { error: 'RESULT_UNCONFIRMED' }; }
+    replacePresentation(updated);
+    operationStatus.textContent = suffix === 'cover' ? 'Обложка сохранена.' : 'Избранное обновлено.';
+    return updated;
+  } catch (cause) {
+    if (owner && ['RESULT_UNCONFIRMED', 'RECORD_CHANGED', 'NOT_FOUND'].includes(cause.error)) requireRefresh();
+    const messages = { INVALID_COVER: 'Изображение повреждено, слишком большое или имеет неподдерживаемый формат. Выберите JPEG/PNG/WebP до 16 мегапикселей.', COVER_TOO_LARGE: 'Максимальный размер — 10 MiB.',
+      UNSUPPORTED_COVER_TYPE: 'Поддерживаются JPEG, PNG и WebP.', COVERS_NOT_CONFIGURED: 'Хранилище обложек пока не подключено.', COVER_BUSY: 'Обложка уже обрабатывается. Повторите позже.',
+      RECORD_CHANGED: 'Запись изменилась. Закройте окно, обновите список и повторно выберите действие.', RESULT_UNCONFIRMED: 'Результат не подтверждён. Закройте окно и обновите список. Автоматического повтора нет.' };
+    throw Error(messages[cause.error] || cause.message || 'Операция не выполнена. Закройте окно и обновите список.');
+  } finally { writing = false; button.disabled = controls.disabled = false; }
+}
+async function toggleFavorite(record) {
+  if (!canPresentAct()) return;
+  mobileView.suspendDetail(record);
+  try { await changePresentation(record, 'favorite', 'PATCH', JSON.stringify({ favorite: !record.favorite }), 'application/json'); }
+  catch (cause) { operationStatus.textContent = cause.message; }
+  finally { restoreQuickFocus(record, 'favorite'); }
+}
+const coverDialog = createCoverDialog({ document, isOwner: () => owner, canAct: canPresentAct,
+  mutate: (record, file) => changePresentation(record, 'cover', file ? 'PUT' : 'DELETE', file || undefined, file?.type),
+  onClose: () => setTimeout(() => {
+    if (coverFocusRecord) restoreQuickFocus(coverFocusRecord, 'cover');
+    coverFocusRecord = null;
+  }, 0) });
 bindBugReport({ document, fetch, section: isWishlist ? 'wishlist' : 'collection',
   canOpen: () => !writing && !authBusy && !anyDialogOpen() && !document.querySelector('#detail-dialog').open });
 
-document.addEventListener('DOMContentLoaded', async () => { resetResults(); await checkSession(); });
+document.addEventListener('DOMContentLoaded', async () => { resetResults(); void bindDailyQuote({ document, window, fetch, section: isWishlist ? 'wishlist' : 'collection' }); await checkSession(); });
 window.addEventListener('focus', () => { if (!authBusy && !writing) void checkSession(); });

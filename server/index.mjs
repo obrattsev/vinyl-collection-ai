@@ -9,6 +9,8 @@ import { isAbsolute } from 'node:path';
 import { access } from 'node:fs/promises';
 import { createApp } from './app.mjs';
 import { createGoogleSheetsRepository } from './google-sheets-collection.mjs';
+import { createCoverStorage } from './cover-storage.mjs';
+import { createPresentationService } from './presentation-service.mjs';
 
 async function start() {
   const { COLLECTION_SPREADSHEET_ID: spreadsheetId, COLLECTION_SHEET_NAME: sheetName,
@@ -21,12 +23,15 @@ async function start() {
   const serial = createWriteQueue();
   const collection = createGoogleSheetsRepository({ spreadsheetId, sheetName, keyFile });
   const services = createCollectionService(collection, serial);
+  const covers = process.env.COVERS_DIR ? createCoverStorage(process.env.COVERS_DIR) : null;
+  let wishlist;
   const { WISHLIST_SPREADSHEET_ID: wishlistId, WISHLIST_SHEET_NAME: wishlistSheet } = process.env;
   if (wishlistId || wishlistSheet) {
     if (!wishlistId || !/^[a-zA-Z0-9_-]+$/.test(wishlistId) || !wishlistSheet?.trim() || wishlistId === spreadsheetId) throw new Error('Invalid wishlist configuration');
-    const wishlist = createWishlistRepository({ spreadsheetId: wishlistId, sheetName: wishlistSheet, keyFile });
-    Object.assign(services, createWishlistService(wishlist, collection, serial), { transferRecord: createTransferService(wishlist, collection, serial) });
+    wishlist = createWishlistRepository({ spreadsheetId: wishlistId, sheetName: wishlistSheet, keyFile });
+    Object.assign(services, createWishlistService(wishlist, collection, serial), { transferRecord: createTransferService(wishlist, collection, serial, covers) });
   }
+  Object.assign(services, createPresentationService({ collection, wishlist, covers, serial }));
   const reportConfig = reportConfiguration(process.env);
   if (reportConfig) services.createReport = createReportService(createReportRepository({ ...reportConfig, keyFile }), { version: await readRelease() });
   const server = createApp(services, { auth });

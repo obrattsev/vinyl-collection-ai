@@ -4,7 +4,7 @@ import { createCollectionService, OperationError } from '../server/collection-se
 import { recordRevision, validateDraft, CollectionDataError, validateCollection } from '../src/collection-record.mjs';
 import { record } from './fixtures/collection.mjs';
 
-const { id, ...baseDraft } = record;
+const { id, coverId, favorite, ...baseDraft } = record;
 const draft = overrides => ({ ...baseDraft, album: 'New album', ...overrides });
 function memory(initial = [record]) {
   let records = structuredClone(initial);
@@ -35,7 +35,7 @@ test('POST generates UUID, preserves all draft values and other records, returns
   const created = await service.createRecord(input);
   validateCollection([created]);
   assert.notEqual(created.id, record.id);
-  assert.deepEqual(created, { ...input, id: created.id });
+  assert.deepEqual(created, { ...input, coverId: null, favorite: false, id: created.id });
   assert.deepEqual(m.records, [record, created]);
   assert.deepEqual(m.calls, { append: 1, delete: 0, read: 2 });
 });

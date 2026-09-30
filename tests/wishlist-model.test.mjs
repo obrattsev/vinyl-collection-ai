@@ -6,13 +6,13 @@ import { searchWishlist } from '../src/wishlist-rules.mjs';
 import { WISHLIST_COLUMNS, mapWishlistValues, createWishlistRepository, WishlistSourceError } from '../server/google-sheets-wishlist.mjs';
 const headers = Object.keys(WISHLIST_COLUMNS);
 const row = Object.values(WISHLIST_COLUMNS).map(field => wish[field]);
-test('wishlist maps exactly 11 applicable fields, numeric years, nulls and arbitrary header order', () => {
+test('wishlist maps exactly 12 applicable fields, numeric years, nulls and arbitrary header order', () => {
   assert.deepEqual(mapWishlistValues([headers, row]), [wish]);
   assert.deepEqual(mapWishlistValues([[...headers].reverse(), [...row].reverse()]), [wish]);
   const sparse = [wish.id, 'Artist', 'Album', '', '', '', 2026];
   const [mapped] = mapWishlistValues([headers, sparse]);
   assert.equal(mapped.albumYear, '2026'); assert.equal(mapped.storeUrl, null);
-  assert.equal(Object.keys(mapped).length, 11); assert.ok(!Object.hasOwn(mapped, 'purchaseDate'));
+  assert.equal(Object.keys(mapped).length, 12); assert.ok(!Object.hasOwn(mapped, 'purchaseDate'));
   assert.deepEqual(mapWishlistValues([headers, [], ['  ']]), []);
 });
 test('wishlist rejects missing/duplicate headers, partial rows, malformed URL and invalid UUIDs without repairing', () => {

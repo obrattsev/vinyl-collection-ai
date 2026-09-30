@@ -1,2 +1,4 @@
 // Both sections share the same four-criterion search contract.
-export { searchCollection as searchWishlist, validateSearchCriteria as validateWishlistCriteria } from './collection-rules.mjs';
+import { searchCollection, validateSearchCriteria } from './collection-rules.mjs';
+export { validateSearchCriteria as validateWishlistCriteria };
+export const searchWishlist = (records, criteria = {}) => searchCollection(records, { ...criteria, favoriteOnly: false });

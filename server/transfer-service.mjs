@@ -6,7 +6,7 @@ import { OperationError, createWriteQueue, validateInput, confirmedRecord, appen
 
 // No transaction or provenance is inferred from a duplicate. Reusing an owned record
 // requires the user to select it and confirm both current record revisions.
-export function createTransferService(wishlist, collection, serial = createWriteQueue()) {
+export function createTransferService(wishlist, collection, serial = createWriteQueue(), covers = null) {
   const readWishlist = () => wishlist.getWishlist();
   const readCollection = () => collection.getCollection();
   return async (id, expected, input) => serial(async () => {
@@ -27,7 +27,10 @@ export function createTransferService(wishlist, collection, serial = createWrite
       // Keep possible prior transfer targets even when edition evidence is incomplete.
       const duplicates = before.filter(record => isPotentialDuplicate(candidate, record));
       if (duplicates.length) throw new OperationError(409, 'POTENTIAL_DUPLICATE', { records: duplicates });
-      owned = await appendVerified(collection, readCollection, candidate, before, recordSnapshot);
+      if (source.coverId && !covers) throw new OperationError(503, 'COVERS_NOT_CONFIGURED');
+      const hold = source.coverId ? await covers.hold([source.coverId]) : null;
+      owned = await appendVerified(collection, readCollection, { ...candidate, coverId: source.coverId, favorite: false }, before, recordSnapshot);
+      if (hold) { try { await covers.release(hold); } catch { /* retain on cleanup failure */ } }
     }
     try {
       // Source may have changed while creation was in flight. Never delete a new version.

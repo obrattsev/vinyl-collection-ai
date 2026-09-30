@@ -1,15 +1,15 @@
 // Presentation only: the application owns records, sorting and every CRUD operation.
 export function createMobileRecords({ document, media, labels, publicFields, display, isOwner, canAct, isBusy,
-  openEdit, openDelete, openTransfer, wishlist, desktopResults }) {
+  openEdit, openDelete, openTransfer, wishlist, desktopResults, cover, favorite }) {
   const get = id => document.querySelector(`#${id}`);
   const root = get('mobile-results'), list = get('mobile-records'), detail = get('detail-dialog');
   const content = get('detail-content'), actions = get('detail-actions');
   const status = get('status');
-  let focusRecord = null, buttons = new Map(), handingOff = false;
+  let focusRecord = null, buttons = new Map(), quickButtons = new Map(), handingOff = false;
   const key = record => record.id?.toLowerCase() || record;
-  function restoreFocus() {
+  function restoreFocus(kind) {
     if (focusRecord === null || isBusy() || detail.open) return;
-    const button = buttons.get(focusRecord);
+    const button = quickButtons.get(focusRecord)?.[kind] || buttons.get(focusRecord);
     if (media.matches && button) button.focus();
     else if (!media.matches && !desktopResults.hidden) desktopResults.focus();
     else status.focus();
@@ -45,13 +45,18 @@ export function createMobileRecords({ document, media, labels, publicFields, dis
   });
   return {
     restoreFocus,
+    suspendDetail(record) {
+      focusRecord = key(record); handingOff = true;
+      if (detail.open) detail.close();
+      clearDetail(); handingOff = false;
+    },
     reset(forgetFocus = false) {
       if (forgetFocus) focusRecord = null;
       if (detail.open) detail.close();
-      clearDetail(); buttons.clear(); list.replaceChildren(); root.hidden = true;
+      clearDetail(); buttons.clear(); quickButtons.clear(); list.replaceChildren(); root.hidden = true;
     },
     render(records) {
-      buttons = new Map(); list.replaceChildren();
+      buttons = new Map(); quickButtons = new Map(); list.replaceChildren();
       for (const record of records) {
         const item = document.createElement('li');
         const button = document.createElement('button'); button.type = 'button'; button.className = 'compact-record';
@@ -64,7 +69,14 @@ export function createMobileRecords({ document, media, labels, publicFields, dis
         metadata.textContent = [record.albumYear, record.genre].filter(value => value != null && value !== '').join(' · ') || '—';
         button.append(metadata);
         button.addEventListener('click', () => open(record)); buttons.set(key(record), button);
-        item.append(button); list.append(item);
+        item.className = 'compact-item';
+        const coverButton = cover?.(record);
+        if (coverButton) item.append(coverButton);
+        item.append(button);
+        const favoriteButton = wishlist ? null : favorite?.(record);
+        if (favoriteButton) item.append(favoriteButton);
+        quickButtons.set(key(record), { cover: coverButton, favorite: favoriteButton });
+        list.append(item);
       }
       root.hidden = !records.length;
     }

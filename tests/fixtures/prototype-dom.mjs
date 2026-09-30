@@ -1,5 +1,7 @@
 import { createMobileRecords } from '../../prototype/mobile-records.mjs';
 import { bindBugReport } from '../../prototype/bug-report-ui.mjs';
+import * as coverUI from '../../prototype/cover-ui.mjs';
+import { bindDailyQuote } from '../../prototype/daily-quote-ui.mjs';
 import * as publicModel from '../../src/public-record.mjs';
 // Minimal DOM harness for actual app.js handlers. Layout/input behavior is checked in a browser.
 import * as presentation from '../../prototype/record-presentation.mjs';
@@ -46,7 +48,7 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true, compa
     focus() { this.focused = true; document.activeElement = this; }
     reset() { for (const input of [...namedInputs.values(), ...searchInputs.values()]) if (input.form === this) input.value = ''; this.dispatchEvent(new Event('reset')); }
     showModal() { this.open = true; }
-    close() { this.open = false; this.dispatchEvent(new Event('close')); }
+    close() { if (!this.open) return; this.open = false; this.dispatchEvent(new Event('close')); }
   }
   const document = {
     handlers: {},
@@ -62,7 +64,7 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true, compa
   }));
   const context = vm.createContext({ document, window: { addEventListener() {}, matchMedia: () => media }, fetch, Event, URL, Blob, setTimeout,
     FormData: class { constructor(form) { return [...(form === document.querySelector('#search-form') ? searchInputs : namedInputs)].map(([name, input]) => [name, input.value]); } },
-    createMobileRecords, bindBugReport, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
+    createMobileRecords, bindBugReport, bindDailyQuote, ...coverUI, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
   const source = (await readFile(new URL('../../prototype/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   vm.runInContext(source, context);
   vm.runInContext(`applySession(${JSON.stringify(owner ? {role:'owner',csrfToken:'test-csrf'} : {role:'guest'})})`, context);

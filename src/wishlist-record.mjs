@@ -1,5 +1,6 @@
 import { BASE_FIELDS, baseFieldErrors, validateRecords, validateRecordDraft, snapshot, revision } from './base-record.mjs';
-export const WISHLIST_FIELDS = Object.freeze([...BASE_FIELDS, 'storeUrl']);
+import { validCoverId } from './cover-record.mjs';
+export const WISHLIST_FIELDS = Object.freeze([...BASE_FIELDS, 'storeUrl', 'coverId']);
 export class WishlistDataError extends Error {
   constructor() { super('WISHLIST_DATA_INVALID'); this.name = 'WishlistDataError'; }
 }
@@ -12,7 +13,11 @@ export function wishlistFieldErrors(record) {
   if (record.storeUrl !== null && !validStoreUrl(record.storeUrl)) errors.storeUrl = 'Укажите полный URL или оставьте поле пустым.';
   return errors;
 }
-export const validateWishlist = records => validateRecords(records, WISHLIST_FIELDS, wishlistFieldErrors, WishlistDataError);
-export const validateWishlistDraft = draft => validateRecordDraft(draft, validateWishlist, WishlistDataError);
+export const validateWishlist = records => validateRecords(records, WISHLIST_FIELDS, record => ({ ...wishlistFieldErrors(record),
+  ...(!validCoverId(record.coverId) ? { coverId: 'Invalid cover' } : {}) }), WishlistDataError);
+export function validateWishlistDraft(draft) {
+  if (draft && Object.hasOwn(draft, 'coverId')) throw new WishlistDataError();
+  return validateRecordDraft(draft, records => validateWishlist(records.map(record => ({ ...record, coverId: null }))), WishlistDataError);
+}
 export const wishlistSnapshot = record => snapshot(record, WISHLIST_FIELDS);
 export const wishlistRevision = record => revision(record, WISHLIST_FIELDS);

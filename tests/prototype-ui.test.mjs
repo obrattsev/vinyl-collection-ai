@@ -6,7 +6,7 @@ import { GENRES } from '../src/genres.mjs';
 
 async function prepareAddition(ui) {
   await ui.get('#add-record').fire('click');
-  const { id, ...draft } = record;
+  const { id, coverId, favorite, ...draft } = record;
   ui.fill({ ...draft, purchaseDate: '03.09.2026' });
   await ui.get('#record-form').fire('submit');
   assert.equal(ui.get('#confirm-record').hidden, false);

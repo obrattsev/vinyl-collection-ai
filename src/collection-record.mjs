@@ -1,7 +1,8 @@
 import { BASE_FIELDS, baseFieldErrors, validateRecords, validateRecordDraft, snapshot, revision } from './base-record.mjs';
 import { normalize } from './collection-rules.mjs';
+import { validCoverId } from './cover-record.mjs';
 export { UUID } from './base-record.mjs';
-export const COLLECTION_FIELDS = Object.freeze([...BASE_FIELDS, 'purchaseDate', 'purchaseStore', 'purchasePrice']);
+export const COLLECTION_FIELDS = Object.freeze([...BASE_FIELDS, 'purchaseDate', 'purchaseStore', 'purchasePrice', 'coverId', 'favorite']);
 
 export class CollectionDataError extends Error {
   constructor() {
@@ -23,7 +24,12 @@ export function draftFieldErrors(record) {
   if (!(record.purchasePrice === null || (typeof record.purchasePrice === 'number' && Number.isFinite(record.purchasePrice) && record.purchasePrice >= 0))) errors.purchasePrice = 'Укажите неотрицательную сумму в рублях.';
   return errors;
 }
-export const validateCollection = records => validateRecords(records, COLLECTION_FIELDS, draftFieldErrors, CollectionDataError);
-export const validateDraft = draft => validateRecordDraft(draft, validateCollection, CollectionDataError);
+export const validateCollection = records => validateRecords(records, COLLECTION_FIELDS, record => ({ ...draftFieldErrors(record),
+  ...(!validCoverId(record.coverId) ? { coverId: 'Invalid cover' } : {}),
+  ...(typeof record.favorite !== 'boolean' ? { favorite: 'Invalid favorite' } : {}) }), CollectionDataError);
+export function validateDraft(draft) {
+  if (draft && (Object.hasOwn(draft, 'coverId') || Object.hasOwn(draft, 'favorite'))) throw new CollectionDataError();
+  return validateRecordDraft(draft, records => validateCollection(records.map(record => ({ ...record, coverId: null, favorite: false }))), CollectionDataError);
+}
 export const recordSnapshot = record => snapshot(record, COLLECTION_FIELDS);
 export const recordRevision = record => revision(record, COLLECTION_FIELDS);

@@ -68,8 +68,8 @@ test('POST, DELETE and other methods cannot invoke the data source', async t => 
 test('only the explicit client files are served with correct MIME types', async t => {
   const url = await start(t);
   for (const [path, mime, text] of [
-    ['/collection', 'text/html', 'Моя коллекция'],
-    ['/wishlist', 'text/html', 'Wish-list'],
+    ['/collection', 'text/html', 'Коллекция'],
+    ['/wishlist', 'text/html', 'wish-list'],
     ['/assets/app.js', 'text/javascript', "'/api/collection'"],
     ['/assets/styles.css', 'text/css', 'overflow-x: auto'],
     ['/src/collection-rules.mjs', 'text/javascript', 'searchCollection'],

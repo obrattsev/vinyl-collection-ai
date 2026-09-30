@@ -21,7 +21,7 @@ async function start(t) {
   const headers = await loginOwner(`http://127.0.0.1:${server.address().port}`);
   return { headers, url: `http://127.0.0.1:${server.address().port}`, get records() { return records; }, get writes() { return writes; }, repository };
 }
-const { id, ...draft } = record;
+const { id, coverId, favorite, ...draft } = record;
 const post = (app, value, headers = {}) => fetch(`${app.url}/api/collection`, {
   method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(value)
 });
@@ -30,7 +30,7 @@ test('HTTP POST → GET → DELETE → GET preserves existing data and returns c
   const app = await start(t);
   const response = await post(app, { ...draft, album: 'New album' }, { Origin: app.url });
   assert.equal(response.status, 201); const created = await response.json();
-  assert.equal(Object.keys(created).length, 13);
+  assert.equal(Object.keys(created).length, 15);
   assert.deepEqual(await (await fetch(`${app.url}/api/collection`)).json(), [record, created]);
   const deleted = await fetch(`${app.url}/api/collection/${created.id}`, { method: 'DELETE', headers: { 'If-Match': await recordRevision(created), Origin: app.url } });
   assert.equal(deleted.status, 200); assert.deepEqual(await deleted.json(), created);

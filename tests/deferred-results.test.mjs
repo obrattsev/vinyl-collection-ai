@@ -9,11 +9,11 @@ for (const wishlist of [false, true]) {
   for (const owner of [false, true]) test(`${wishlist ? 'wishlist' : 'collection'} ${owner ? 'owner' : 'guest'}: opening and session checks never fetch records`, async () => {
     const calls = [];
     const ui = await prototypeUI(async url => {
-      calls.push(url); assert.equal(url, '/api/auth/session');
+      calls.push(url); if (url === '/assets/data/music-quotes.json') return response([]); assert.equal(url, '/api/auth/session');
       return response(owner ? {role:'owner',csrfToken:'token'} : {role:'guest'});
     }, {wishlist, owner:false});
     await ui.start(); await ui.run('checkSession()');
-    assert.deepEqual(calls, ['/api/auth/session','/api/auth/session']);
+    assert.deepEqual(calls, ['/assets/data/music-quotes.json', '/api/auth/session','/api/auth/session']);
     assert.equal(ui.get('#table-container').hidden, true);
     assert.equal(ui.get('#status').textContent, 'Здесь появятся результаты поиска.');
   });
@@ -55,6 +55,6 @@ test('login/logout in initial state only call auth endpoints', async () => {
   }, {owner:false});
   await ui.start(); ui.get('#owner-password').value='test-only';
   await ui.get('#login-form').fire('submit'); await ui.get('#owner-logout').fire('click');
-  assert.deepEqual(calls,['/api/auth/session','/api/auth/login','/api/auth/logout']);
+  assert.deepEqual(calls,['/assets/data/music-quotes.json', '/api/auth/session','/api/auth/login','/api/auth/logout']);
   assert.equal(ui.get('#table-container').hidden,true);
 });

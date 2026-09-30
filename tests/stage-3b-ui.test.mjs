@@ -4,7 +4,7 @@ import { prototypeUI, response, deferred } from './fixtures/prototype-dom.mjs';
 import { record } from './fixtures/collection.mjs';
 import { wish } from './fixtures/wishlist.mjs';
 import { publicRecords } from '../src/public-record.mjs';
-const buttons = ui => ui.get('#mobile-records').querySelectorAll('button');
+const buttons = ui => ui.get('#mobile-records').querySelectorAll('button').filter(button => button.className === 'compact-record');
 const text = node => [node.textContent, ...node.children.map(text)].join(' ');
 const tick = () => new Promise(resolve => setTimeout(resolve, 1));
 for (const wishlist of [false, true]) for (const owner of [false, true]) {
@@ -42,7 +42,7 @@ for (const wishlist of [false, true]) test(`3B ${wishlist}: detail handoff reuse
   const ui = await prototypeUI(async (url, options = {}) => {
     if (options.method) {
       writes.push(options.method);
-      if (options.method === 'PUT') source = { ...JSON.parse(options.body), id: source.id };
+      if (options.method === 'PUT') source = { ...source, ...JSON.parse(options.body), id: source.id };
       if (options.method === 'DELETE') exists = false;
       return response(source);
     }
@@ -163,7 +163,7 @@ test('3B accepted markup keeps sort controls grouped, helper exact, close labell
     assert.match(html, /id="report-success"[^>]*role="status"/);
   }
   const css = await readFile(new URL('../prototype/styles.css', import.meta.url), 'utf8');
-  assert.match(css, /#close-detail, \.detail-actions button \{ height: auto; min-height: 44px; padding: 12px; \}/);
+  assert.match(css, /\.detail-actions button \{ height: auto; min-height: 44px; padding: 12px; \}/);
 });
 
 test('3B success status expires and reopening report cancels the previous status timer', async t => {

@@ -136,14 +136,14 @@ test('one queue serializes transfer with ordinary collection/wishlist writes', a
 
 test('incomplete edition additions are allowed symmetrically in collection and across wishlist sources', async () => {
   const incomplete = {...record, label:null, recordYear:null, editionType:null};
-  const {id, ...incompleteDraft} = incomplete;
-  const {id: recordId, ...completeDraft} = record;
+  const {id, coverId, favorite, ...incompleteDraft} = incomplete;
+  const {id: recordId, coverId: recordCover, favorite: recordFavorite, ...completeDraft} = record;
   for (const [existing, draft] of [[incomplete,completeDraft], [record,incompleteDraft]]) {
     const own = memoryRepository([existing], 'collection');
     assert.ok((await createCollectionService(own).createRecord(draft)).id);
     const {purchaseDate,purchaseStore,purchasePrice,...common} = draft;
     for (const source of ['wishlist','collection']) {
-      const {purchaseDate,purchaseStore,purchasePrice,...existingCommon} = existing;
+      const {purchaseDate,purchaseStore,purchasePrice,favorite,...existingCommon} = existing;
       const app = setup(source === 'wishlist' ? [{...existingCommon,storeUrl:null}] : [], source === 'collection' ? [existing] : []);
       assert.ok((await app.service.createWishlistRecord({...common,storeUrl:null})).id);
     }

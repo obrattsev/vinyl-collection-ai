@@ -6,7 +6,8 @@ export const SHEETS_COLUMNS = Object.freeze({
   'ID': 'id', 'Исполнитель': 'artist', 'Альбом': 'album', 'Жанр': 'genre',
   'Дополнительный жанр': 'additionalGenre', 'Лейбл': 'label', 'Год альбома': 'albumYear',
   'Год пластинки': 'recordYear', 'Тип издания': 'editionType', 'Примечание': 'note',
-  'Дата покупки': 'purchaseDate', 'Магазин покупки': 'purchaseStore', 'Цена покупки': 'purchasePrice'
+  'Дата покупки': 'purchaseDate', 'Магазин покупки': 'purchaseStore', 'Цена покупки': 'purchasePrice',
+  'Обложка ID': 'coverId', 'Избранное': 'favorite'
 });
 export const READONLY_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 

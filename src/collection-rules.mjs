@@ -66,6 +66,7 @@ export function validateSearchCriteria(criteria = {}) {
 export function searchCollection(records, criteria = {}) {
   const values = validateSearchCriteria(criteria);
   return records.filter(record =>
+    (!criteria.favoriteOnly || record.favorite === true) &&
     ['artist', 'album'].every(field => !values[field] || matchesText(record[field], values[field], 'contains')) &&
     (!values.albumYear || normalize(record.albumYear) === values.albumYear) &&
     matchesGenre(record, values.genre, 'contains'));

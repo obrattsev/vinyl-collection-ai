@@ -6,8 +6,8 @@ import { record } from './fixtures/collection.mjs';
 import { wish } from './fixtures/wishlist.mjs';
 import { publicRecords } from '../src/public-record.mjs';
 const text = node => [node.textContent, ...node.children.map(text)].join(' ');
-const rows = ui => ui.get('#records').children[0].children;
-const detail = async ui => { await ui.get('#mobile-records').querySelectorAll('button')[0].fire('click'); return ui.get('#detail-content'); };
+const rows = ui => ui.get('#records').children[0].children.map(row => ({ children: row.children.slice(1) }));
+const detail = async ui => { await ui.get('#mobile-records').querySelectorAll('button').find(button => button.className === 'compact-record').fire('click'); return ui.get('#detail-content'); };
 const url = 'https://example.com/album?value=' + 'a'.repeat(1500);
 const note = 'Полное примечание; "кавычки"\n' + 'Очень длинный текст '.repeat(80);
 

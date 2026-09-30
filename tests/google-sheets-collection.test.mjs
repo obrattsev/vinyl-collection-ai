@@ -7,10 +7,23 @@ import { record } from './fixtures/collection.mjs';
 const headers = Object.keys(SHEETS_COLUMNS);
 const row = Object.values(SHEETS_COLUMNS).map(field => record[field]);
 
-test('all 13 Russian columns map to the agreed complete model without changing input', () => {
+test('all 15 Russian columns map to the agreed complete model without changing input', () => {
   const values = Object.freeze([Object.freeze([...headers]), Object.freeze([...row])]);
   assert.deepEqual(mapSheetValues(values), [record]);
   assert.equal(Object.hasOwn(mapSheetValues(values)[0], 'storeUrl'), false);
+});
+
+test('3D empty favorite means false without mutation; Sheets booleans are typed and covers are canonical UUIDs', () => {
+  const index = headers.indexOf('Избранное'), cover = headers.indexOf('Обложка ID');
+  for (const value of ['', null, undefined, '   ', false, true]) {
+    const input = [...row]; input[index] = value;
+    const before = structuredClone(input), mapped = mapSheetValues([headers, input])[0];
+    assert.equal(mapped.favorite, value === true); assert.deepEqual(input, before);
+  }
+  for (const value of ['TRUE', 'false', 0, 1]) { const input = [...row]; input[index] = value; assert.throws(() => mapSheetValues([headers, input]), CollectionDataError); }
+  for (const value of ['../file', 'https://example.com/image.jpg', record.id.toUpperCase()]) {
+    const input = [...row]; input[cover] = value; assert.throws(() => mapSheetValues([headers, input]), CollectionDataError);
+  }
 });
 
 test('header order is arbitrary and unknown columns do not enter the model', () => {
@@ -137,10 +150,10 @@ test('writes append typed cells after data, map reordered headers and delete onl
     return { data: {} };
   } }) };
   const service = createCollectionService(createGoogleSheetsRepository({ spreadsheetId: 'test', sheetName: 'Collection', auth }));
-  const { id, ...input } = record;
+  const { id, coverId, favorite, ...input } = record;
   input.album = '=literal title'; input.purchasePrice = 0; input.note = null;
   const created = await service.createRecord(input);
-  assert.deepEqual(created, { ...input, id: created.id });
+  assert.deepEqual(created, { ...input, coverId: null, favorite: false, id: created.id });
   assert.deepEqual(values[2], originalRow);
   assert.deepEqual(await service.deleteRecord(created.id, await recordRevision(created)), created);
   assert.deepEqual(values, [reversedHeaders, [], originalRow]);

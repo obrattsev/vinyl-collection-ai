@@ -4,6 +4,11 @@ import { OperationError } from './record-operations.mjs';
 const empty = value => value == null || (typeof value === 'string' && value.trim() === '');
 
 function fromCell(field, value, DataError) {
+  if (field === 'favorite') {
+    if (empty(value)) return false;
+    if (typeof value !== 'boolean') throw new DataError();
+    return value;
+  }
   if (empty(value)) return null;
   if ((field === 'albumYear' || field === 'recordYear') && typeof value === 'number') {
     if (!Number.isInteger(value)) throw new DataError();
@@ -65,7 +70,7 @@ export function createSheetsRepository({ spreadsheetId, sheetName, keyFile, colu
       const cells = values[0].map(header => {
         const value = Object.hasOwn(columns, header) ? record[columns[header]] : null;
         return value == null ? {} : { userEnteredValue:
-          typeof value === 'number' ? { numberValue: value } : { stringValue: value } };
+          typeof value === 'boolean' ? { boolValue: value } : typeof value === 'number' ? { numberValue: value } : { stringValue: value } };
       });
       // appendCells uses the last data row, including data below blank rows, without overwriting rows.
       await request({ url: `${base}:batchUpdate`, method: 'POST', data: { requests: [{ appendCells: {
@@ -84,12 +89,15 @@ export function createSheetsRepository({ spreadsheetId, sheetName, keyFile, colu
       const requests = values[0].flatMap((header, columnIndex) => {
         if (!Object.hasOwn(columns, header) || columns[header] === 'id') return [];
         const value = record[columns[header]];
+        // Do not resend unchanged cells: a delayed metadata/favorite write must not
+        // reattach an old cover (or revert other unchanged presentation fields).
+        if (value === current[columns[header]]) return [];
         const cell = value == null ? {} : { userEnteredValue:
-          typeof value === 'number' ? { numberValue: value } : { stringValue: value } };
+          typeof value === 'boolean' ? { boolValue: value } : typeof value === 'number' ? { numberValue: value } : { stringValue: value } };
         return [{ updateCells: { range: { sheetId: targetId, startRowIndex: rowIndex, endRowIndex: rowIndex + 1,
           startColumnIndex: columnIndex, endColumnIndex: columnIndex + 1 }, rows: [{ values: [cell] }], fields: 'userEnteredValue' } }];
       });
-      await request({ url: `${base}:batchUpdate`, method: 'POST', data: { requests } });
+      if (requests.length) await request({ url: `${base}:batchUpdate`, method: 'POST', data: { requests } });
     },
     deleteRecord: async (record, expected) => {
       const targetId = await sheetId();

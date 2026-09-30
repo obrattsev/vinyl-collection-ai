@@ -10,7 +10,7 @@ export function createWishlistService(repository, collectionRepository, serial =
       const [before, collection] = await Promise.all([read(), collectionRepository.getCollection()]);
       const { blocked, duplicates, ownedDuplicates } = checkAddition(input, 'wishlist', collection, before);
       if (blocked) throw new OperationError(409, 'POTENTIAL_DUPLICATE', { records: [...duplicates, ...ownedDuplicates] });
-      return appendVerified(repository, read, input, before, wishlistSnapshot);
+      return appendVerified(repository, read, { ...input, coverId: null }, before, wishlistSnapshot);
     }),
     updateWishlistRecord: (id, expected, input) => serial(async () => {
       validateInput(input, validateWishlistDraft);
@@ -18,7 +18,7 @@ export function createWishlistService(repository, collectionRepository, serial =
       const collection = await collectionRepository.getCollection();
       const { blocked, duplicates, ownedDuplicates } = checkAddition(input, 'wishlist', collection, before.filter(r => !sameId(r.id, id)));
       if (blocked) throw new OperationError(409, 'POTENTIAL_DUPLICATE', { records: [...duplicates, ...ownedDuplicates] });
-      return updateVerified(repository, read, record, input, expected, before, wishlistSnapshot);
+      return updateVerified(repository, read, record, { ...input, coverId: record.coverId }, expected, before, wishlistSnapshot);
     }),
     deleteWishlistRecord: (id, expected) => serial(async () => {
       const { before, record } = await confirmedRecord(read, id, expected, wishlistRevision);

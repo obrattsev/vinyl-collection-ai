@@ -116,3 +116,7 @@ Self-review изменения: подтверждённых Critical/High/Mediu
 ## Дополнение 3A
 
 PUT /api/collection/:id и PUT /api/wishlist/:id проходят те же owner-session, Host/Origin и CSRF-проверки до обращения к данным. Guest по-прежнему не получает UUID и приватные поля. Клиентские сортировка и CSV используют только текущую доступную проекцию; смена роли очищает отображаемый набор и экспорт. Новых прав guest или export API нет.
+
+## Дополнение 3D
+
+PUT/DELETE cover и PATCH favorite проходят тот же owner + Origin + CSRF guard до чтения тела и требуют If-Match. Публичная проекция расширена cover URL и favorite только Collection, приватные поля/UUID записи по-прежнему отсутствуют. Media содержит только нормализованные WebP, без оригиналов/EXIF/листинга; guest controls изменения отсутствуют. [Контракт](stage-3d-spec.md).

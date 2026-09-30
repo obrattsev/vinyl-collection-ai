@@ -8,7 +8,7 @@ test('complete collection records pass without mutations; an empty array is vali
   const records = Object.freeze([record]);
   assert.equal(validateCollection(records), records);
   assert.deepEqual(validateCollection([]), []);
-  assert.equal(COLLECTION_FIELDS.length, 13);
+  assert.equal(COLLECTION_FIELDS.length, 15);
 });
 
 test('every applicable key is required; inapplicable or extra keys are rejected', () => {
@@ -48,7 +48,7 @@ test('artist and album cannot be absent, nontext or whitespace-only', () => {
 
 test('optional fields may be null; unknown price differs from free', () => {
   const minimal = Object.fromEntries(COLLECTION_FIELDS.map(field => [field,
-    ['id', 'artist', 'album', 'albumYear'].includes(field) ? record[field] : null]));
+    ['id', 'artist', 'album', 'albumYear', 'favorite'].includes(field) ? record[field] : null]));
   assert.doesNotThrow(() => validateCollection([minimal]));
   assert.equal(validateCollection([minimal])[0].purchasePrice, null);
   assert.equal(validateCollection([{...minimal, purchasePrice: 0}])[0].purchasePrice, 0);

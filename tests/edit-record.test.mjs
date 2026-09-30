@@ -11,7 +11,7 @@ import { record } from './fixtures/collection.mjs';
 import { wish } from './fixtures/wishlist.mjs';
 import { testAuth, loginOwner } from './fixtures/auth.mjs';
 const otherId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const draft = ({ id, ...value }) => value;
+const draft = ({ id, coverId, favorite, ...value }) => value;
 function memory(initial) {
   const m = { records: structuredClone(initial), writes: 0 };
   m.getCollection = m.getWishlist = async () => structuredClone(m.records);
@@ -34,7 +34,7 @@ for (const wishlist of [false, true]) {
     const input = { ...draft(source), note: null, genre: 'Legacy genre', additionalGenre: null,
       ...(wishlist ? { storeUrl: null } : { purchasePrice: 0, purchaseDate: null, purchaseStore: null }) };
     const actual = await m.update(source.id.toUpperCase(), await revision(source), input);
-    assert.deepEqual(actual, { ...input, id: source.id });
+    assert.deepEqual(actual, { ...source, ...input, id: source.id });
     assert.deepEqual(m.repo.records, [actual, neighbor]); assert.equal(m.repo.writes, 1);
   });
   test(`${wishlist} PUT rejects invalid bodies/versions, missing and stale records before writes`, async () => {

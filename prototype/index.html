@@ -32,8 +32,9 @@
       </div>
     </div>
     <p id="auth-status" class="auth-feedback" role="status"></p>
-    <section aria-label="Коллекция">
-      <h1>Моя коллекция</h1>
+    <section aria-labelledby="section-title">
+      <h1 id="section-title" class="visually-hidden">Коллекция</h1>
+      <figure id="daily-quote" class="daily-quote" hidden></figure>
       <p class="intro">Найдите нужные пластинки в коллекции. Оставьте поля пустыми, чтобы не учитывать их при поиске.</p>
       <form id="search-form" novalidate>
         <fieldset id="search-controls">
@@ -44,6 +45,7 @@
             <label>Год альбома<input id="search-year" name="albumYear" type="text" inputmode="numeric" maxlength="4" placeholder="Например, 1979"></label>
             <label>Жанр<select id="search-genre" name="genre"></select></label>
           </div>
+          <label class="favorite-filter"><input id="favorite-only" type="checkbox">Только избранное</label>
           <div class="toolbar search-actions">
             <button id="load-collection" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h13M8 12h13M8 19h13"/><circle cx="3" cy="5" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="19" r="1"/></svg>Показать всю коллекцию</button>
             <button type="reset">Очистить</button>
@@ -66,6 +68,7 @@
         <table>
           <caption class="visually-hidden">Основная коллекция</caption>
           <thead><tr>
+            <th scope="col" id="quick-heading" class="quick-cell"><span class="visually-hidden">Избранное и обложка</span></th>
             <th scope="col" id="sort-heading-artist"><button type="button" class="sort-button" id="sort-artist">Исполнитель</button></th><th scope="col" id="sort-heading-album"><button type="button" class="sort-button" id="sort-album">Альбом</button></th>
             <th scope="col" id="sort-heading-genre"><button type="button" class="sort-button" id="sort-genre">Жанр</button></th><th scope="col" id="sort-heading-additionalGenre"><button type="button" class="sort-button" id="sort-additionalGenre">Дополнительный жанр</button></th><th scope="col" id="sort-heading-label"><button type="button" class="sort-button" id="sort-label">Лейбл</button></th>
             <th scope="col" id="sort-heading-albumYear"><button type="button" class="sort-button" id="sort-albumYear">Год альбома</button></th><th scope="col" id="sort-heading-recordYear"><button type="button" class="sort-button" id="sort-recordYear">Год пластинки</button></th>
@@ -80,8 +83,27 @@
       <button type="button" id="download-records" class="button-secondary" hidden disabled>Скачать csv</button>
     </div>
     <button id="open-report" type="button" class="button-secondary">Сообщить об ошибке</button>
+    <dialog id="cover-dialog" aria-labelledby="cover-title">
+      <div class="cover-header"><h2 id="cover-title">Обложка</h2><button id="close-cover" type="button" class="button-secondary" aria-label="Закрыть">×</button></div>
+      <div id="cover-preview" hidden></div>
+      <div id="cover-owner-controls" hidden>
+        <label for="cover-file" id="cover-file-label">Добавить обложку</label>
+        <input id="cover-file" type="file" accept="image/jpeg,image/png,image/webp">
+        <p class="notice">JPEG, PNG или WebP, до 10 MiB и 16 мегапикселей.</p>
+        <div class="cover-actions">
+          <button id="remove-cover" type="button" class="button-secondary" hidden>Удалить</button>
+          <button id="save-cover" type="button" disabled>Сохранить</button>
+        </div>
+        <div id="cover-delete-confirmation" hidden>
+          <p>Удалить обложку этой пластинки?</p>
+          <button id="cancel-remove-cover" type="button" class="button-secondary">Отмена</button>
+          <button id="confirm-remove-cover" type="button" class="button-destructive">Подтвердить удаление</button>
+        </div>
+      </div>
+      <p id="cover-error" role="status"></p>
+    </dialog>
     <dialog id="detail-dialog" aria-labelledby="detail-title">
-      <div class="detail-header"><h2 id="detail-title">Пластинка</h2><button id="close-detail" type="button" class="button-secondary">Закрыть</button></div>
+      <div class="detail-header"><h2 id="detail-title">Пластинка</h2><button id="close-detail" type="button" class="button-secondary" aria-label="Закрыть">×</button></div>
       <div id="detail-content"></div>
       <div id="detail-actions" class="detail-actions"></div>
     </dialog>

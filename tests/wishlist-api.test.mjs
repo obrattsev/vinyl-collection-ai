@@ -26,7 +26,7 @@ test('wishlist GET/POST/DELETE return full models, require versions and never re
   const app = await start(t);
   assert.deepEqual(await (await app.call()).json(), []);
   const response = await app.call('', post(wishDraft)); assert.equal(response.status, 201);
-  const created = await response.json(); assert.equal(Object.keys(created).length, 11);
+  const created = await response.json(); assert.equal(Object.keys(created).length, 12);
   assert.deepEqual(await (await app.call()).json(), [created]);
   assert.equal((await app.call(`/${created.id}`, { method: 'DELETE' })).status, 400);
   assert.equal((await app.call('', post(wishDraft))).status, 409);

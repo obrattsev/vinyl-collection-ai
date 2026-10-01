@@ -1,6 +1,6 @@
 # Local acceptance 3D
 
-Статус: основная функциональность и повторная local acceptance UX-коррекций приняты владельцем. Финальные правки геометрии ♪ и кнопки × в detail проверяются автоматически, без новой ручной приёмки. Каталог из 10 цитат предоставлен и согласован владельцем, текст и переносы сохранены дословно. Production deployment не выполнялся.
+Статус: основная функциональность и повторная local acceptance UX-коррекций приняты владельцем. Финальные правки геометрии ♪ и кнопки × в detail проверены автоматически, без новой ручной приёмки. Каталог из 10 цитат предоставлен и согласован владельцем, текст и переносы сохранены дословно. Production deployment и initial backfill выполнены; [отчёт](stage-3d-production.md). Финальная визуальная production acceptance ожидается.
 
 ## Стенд
 
@@ -24,13 +24,13 @@ Node 24: `node scripts/local-acceptance.mjs`. Открыть http://127.0.0.1:80
 - UI обеих ролей/разделов с cover и без него, отдельные интерактивные элементы, confirmation удаления, отмена/preview/busy/error/recovery, подтверждённый результат без повторного GET, favorite filter и CSV.
 - Date+section quote selection, refresh stability, переход полуночи, пустой/невалидный источник, сохранённый accessible heading.
 - Браузер на локальном стенде: guest view без controls, mobile без placeholder; owner PNG upload/preview/save, detail и подтверждённое удаление; favorite toggle и фильтр; desktop thumbnail измерен 36×36, mobile Wish-list — 48×48, hidden h1 — 1 px, nested interactive controls — 0. Это результаты технической проверки; владелец затем отдельно принял повторную local acceptance.
-- `npm audit --omit=dev`: 0 известных уязвимостей на момент проверки. Lockfile содержит optional sharp binaries для Linux x64; фактическая установка на VPS не выполнялась.
+- `npm audit --omit=dev`: 0 известных уязвимостей на момент проверки. Lockfile содержит optional sharp binaries для Linux x64; установка и декодирование на Linux VPS проверены при deployment 30.09.2026.
 
 ## Review и границы
 
 Self-review включает diff, shared queue, обработку ролей и stale responses, typed Sheets writes, public projection, scope CSV, пути файлов/лимиты декодера. Неизвестные операции сохраняют holds; автоматический сбор оставшихся файлов не реализован намеренно. Удаление самой записи может оставить неиспользуемый файл до отдельной сверки. Прямые параллельные правки ссылок в Sheets не защищены транзакцией.
 
-HEIC/HEIF отложены по решению владельца. Реальный curated source содержит согласованные 10 цитат; стенд использует его без override. Linux/RSS внутри MemoryMax=512M, backup/restore и новые заголовки Sheets проверяются только в отдельно согласованной подготовке production. 3B/3C и подключённый production reports считаются завершёнными; Streaming не начат. Финализация Git, deployment и initial cover backfill разрешены; фактический production результат фиксируется отдельно.
+HEIC/HEIF отложены по решению владельца. Реальный curated source содержит согласованные 10 цитат; стенд использует его без override. Linux/RSS внутри MemoryMax=512M, backup/restore и новые заголовки Sheets проверены при разрешённом deployment; см. production-отчёт. 3B/3C и подключённый production reports считаются завершёнными; Streaming не начат. Финализация Git, deployment и initial cover backfill разрешены; фактический production результат фиксируется отдельно.
 
 ## UX-коррекция после основной acceptance
 

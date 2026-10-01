@@ -39,7 +39,7 @@ Backlog описывает текущее состояние продукта и
 
 ## Этап 3 — Развитие продукта без AI
 
-**Статус: в работе.** 3A, 3B и 3C завершены по подтверждению владельца. Production Bug Reports подключён и проверен; эксплуатационный долг 3B закрыт. Текущий 3D: Favorites (3.9), Covers (3.10), Daily Quote (3.15) — согласованы и реализованы локально, повторная local acceptance принята владельцем. Финализация Git, согласованные поля Sheets, backup covers, deployment и одноразовый initial cover backfill разрешены; выполнение production ещё предстоит. Streaming (3.11) — следующий отдельный пакет, не начат. Этап 3 не завершён. Активный production SHA фиксируется в RELEASE на VPS.
+**Статус: в работе.** 3A, 3B и 3C завершены по подтверждению владельца. Production Bug Reports подключён и проверен; эксплуатационный долг 3B закрыт. Текущий 3D: Favorites (3.9), Covers (3.10), Daily Quote (3.15) — реализованы и развёрнуты; повторная local acceptance принята владельцем. Схема Sheets, backup/restore covers, deployment и одноразовый initial backfill выполнены; финальная визуальная production acceptance ожидается. [Отчёт](stage-3d-production.md). Streaming (3.11) — следующий отдельный пакет, не начат. Этап 3 не завершён. Активный production SHA фиксируется в RELEASE на VPS.
 
 ### 3.1. Редактирование записи
 
@@ -75,11 +75,11 @@ Backlog описывает текущее состояние продукта и
 
 ### 3.9. Избранное основной коллекции
 
-3D, реализовано локально: только Collection, публичная нота ♪, owner toggle без confirmation, read-only фильтр «Только избранное». Mapping `Избранное` → favorite:boolean, пусто=false без массовой перезаписи. Фильтр влияет на displayedRecords/CSV; колонка favorite в CSV не добавляется. [Контракт](stage-3d-spec.md).
+3D, реализовано и развёрнуто: только Collection, публичная нота ♪, owner toggle без confirmation, read-only фильтр «Только избранное». Mapping `Избранное` → favorite:boolean, пусто=false без массовой перезаписи. Фильтр влияет на displayedRecords/CSV; колонка favorite в CSV не добавляется. [Контракт](stage-3d-spec.md).
 
 ### 3.10. Обложки и изображения
 
-3D, реализовано локально: общая первая desktop-колонка Favorite/Cover; отдельные add/replace/delete cover для обеих коллекций, вне Add/Edit metadata. Thumbnail/detail/dialog по роли, без пустого guest placeholder. Persistent COVERS_DIR вне releases, нормализация JPEG/PNG/WebP, HEIC отложен владельцем. Подтверждённые ссылки Sheets, общая очередь, durable holds при неизвестном результате. Геометрия 36/48 px принята по повторной local acceptance. [Контракт](stage-3d-spec.md).
+3D, реализовано и развёрнуто: общая первая desktop-колонка Favorite/Cover; отдельные add/replace/delete cover для обеих коллекций, вне Add/Edit metadata. Thumbnail/detail/dialog по роли, без пустого guest placeholder. Persistent COVERS_DIR вне releases, нормализация JPEG/PNG/WebP, HEIC отложен владельцем. Подтверждённые ссылки Sheets, общая очередь, durable holds при неизвестном результате. Геометрия 36/48 px принята по повторной local acceptance. [Контракт](stage-3d-spec.md).
 
 ### 3.11. Интеграция со стриминговым сервисом
 
@@ -99,7 +99,7 @@ Collection: «Показать всю коллекцию». Wish-list: «Пок�
 
 ### 3.15. Daily Quote и компактный заголовок — пакет 3D
 
-Реализовано локально: curated JSON, стабильный выбор по локальному дню и section, смена в полночь без cron/AI, graceful fallback. Большой heading скрыт визуально, semantic h1 сохранён. Первоначальный каталог из 10 цитат согласован владельцем и подключён к стенду/будущему production; переносы сохранены, фон блока светло-серый. [Приёмка](stage-3d-acceptance.md).
+Реализовано и развёрнуто: curated JSON, стабильный выбор по локальному дню и section, смена в полночь без cron/AI, graceful fallback. Большой heading скрыт визуально, semantic h1 сохранён. Первоначальный каталог из 10 цитат согласован владельцем и подключён к стенду и production; переносы сохранены, фон блока светло-серый. [Приёмка](stage-3d-acceptance.md).
 
 ## Этап 4 — AI-функции, естественный язык и внешнее уточнение
 

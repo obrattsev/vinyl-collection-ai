@@ -82,7 +82,9 @@ nginx -t
 
 Общий пакет 3B + 3C принят владельцем; итоговая дата UI DD.MM.YYYY, полный suite 260/260, self-review чистый. Разрешено закрытие через commit → push → PR → merge → deployment актуального main. На момент первоначального deployment Bug Reports Sheet ещё не был подключён; впоследствии он подключён и проверен владельцем; production env, nginx/systemd/HTTPS и защищённые службы не требуют изменения. Активный commit после deployment проверяется по current/RELEASE и соответствию публичных ресурсов, без реальных изменяющих acceptance-операций.
 
-## Подготовка 3D — разрешена, production ещё не обновлён
+## 3D — развёрнут 30.09.2026
+
+Runtime SHA: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` (PR #21). Схема, storage, backup/restore и initial backfill выполнены: 21/28 Collection и 6/12 Wish-list получили cover, 13 пропусков, 0 ошибок записи. Полные результаты, источники, ограничения проверки и процедура восстановления — [production-отчёт 3D](stage-3d-production.md). Финальная визуальная production acceptance ожидается.
 
 3B/3C завершены, production Bug Reports подключён/проверен по подтверждению владельца; долг закрыт. Повторная local acceptance 3D принята; владелец разрешил финализацию Git, deployment после merge, согласованную схему Sheets и initial cover backfill. Требования новых колонок, COVERS_DIR, Linux sharp/MemoryMax=512M, body limit proxy и обязательный согласованный backup/restore Sheets + всего covers описаны в [3D](stage-3d-spec.md#перед-отдельным-production-deployment). Перед изменениями проверить фактический production state и отсутствие незавершённых owner writes. При необходимости интерактивного SSH входа остановиться на этом шаге.
 

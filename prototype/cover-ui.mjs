@@ -1,5 +1,44 @@
 import { coverPresentation } from '../src/cover-record.mjs';
 
+// Shared by the existing Cover dialog and the optional initial Add field.
+export function coverFileError(file) {
+  return !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024
+    ? 'Выберите JPEG, PNG или WebP до 10 MiB. HEIC/HEIF пока не поддерживается.' : '';
+}
+
+export function createAddCoverField({ document, isOpen, onChange }) {
+  const get = id => document.querySelector(`#${id}`);
+  const root = get('add-cover-field'), input = get('add-cover-file'), preview = get('add-cover-preview'), error = get('add-cover-error');
+  const remove = get('clear-add-cover');
+  let chosen = null, epoch = 0, pending = false;
+  function clear() { epoch++; chosen = null; pending = false; input.value = ''; remove.hidden = true; preview.replaceChildren(); preview.hidden = true; error.textContent = ''; }
+  input.addEventListener('change', () => {
+    const run = ++epoch; chosen = null; pending = false; preview.replaceChildren(); preview.hidden = true; error.textContent = '';
+    onChange();
+    const file = input.files?.[0]; remove.hidden = !file; if (!file) return;
+    error.textContent = coverFileError(file); if (error.textContent) return;
+    pending = true;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (run !== epoch || !isOpen()) return;
+      pending = false; chosen = file;
+      const image = document.createElement('img'); image.src = reader.result; image.alt = 'Выбранная обложка';
+      preview.append(image); preview.hidden = false;
+    };
+    reader.onerror = () => { if (run === epoch && isOpen()) { pending = false; error.textContent = 'Не удалось прочитать изображение.'; } };
+    reader.readAsDataURL(file);
+  });
+  remove.addEventListener('click', () => { clear(); onChange(); });
+  return {
+    reset: clear,
+    show(value) { root.hidden = !value; },
+    disable(value) { input.disabled = remove.disabled = value; },
+    get file() { return chosen; },
+    validate() { return !pending && !error.textContent; },
+    get pending() { return pending; }
+  };
+}
+
 export const recordCover = record => record.cover ?? coverPresentation(record.coverId);
 export function coverControl(document, record, owner, open, large = false) {
   const cover = recordCover(record);
@@ -48,9 +87,8 @@ export function createCoverDialog({ document, isOwner, canAct, mutate, onClose }
     const epoch = ++readEpoch; chosen = null; error.textContent = ''; resetDelete(); controls();
     const candidate = file.files?.[0];
     if (!candidate) { image(recordCover(record)?.imageUrl); return; }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(candidate.type) || candidate.size > 10 * 1024 * 1024) {
-      error.textContent = 'Выберите JPEG, PNG или WebP до 10 MiB. HEIC/HEIF пока не поддерживается.'; return;
-    }
+    const invalid = coverFileError(candidate);
+    if (invalid) { error.textContent = invalid; return; }
     const reader = new FileReader();
     reader.onload = () => { if (epoch !== readEpoch || !dialog.open) return; chosen = candidate; image(reader.result); controls(); };
     reader.onerror = () => { if (epoch === readEpoch) error.textContent = 'Не удалось прочитать изображение.'; };

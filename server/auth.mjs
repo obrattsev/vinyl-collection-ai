@@ -76,6 +76,7 @@ export function createAuth({ passwordHash, origin, production = false, now = Dat
   const cookieName = production ? '__Host-vinyl_session' : 'vinyl_session';
   const loginLimit = createLimiter({ limit: 5, total: 30, windowMs: 15 * 60000, now });
   const reportLimit = createReportLimiter({ now });
+  const streamingLimit = createLimiter({ limit: 10, total: 100, windowMs: 60000, now });
   const readLimit = createLimiter({ limit: 60, total: 300, windowMs: 60000, now });
   const cookie = (id, seconds) => `${cookieName}=${id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${seconds}${production ? '; Secure' : ''}`;
   function idFrom(req) {
@@ -105,7 +106,7 @@ export function createAuth({ passwordHash, origin, production = false, now = Dat
       if (req.headers['x-csrf-token'] !== s.csrf) throw new OperationError(403, 'FORBIDDEN');
     },
     limit(req, kind, res) {
-      const retry = (kind === 'report' ? reportLimit : kind === 'login' ? loginLimit : readLimit)(clientIP(req, production));
+      const retry = (kind === 'streaming' ? streamingLimit : kind === 'report' ? reportLimit : kind === 'login' ? loginLimit : readLimit)(clientIP(req, production));
       if (retry) { res.setHeader('Retry-After', retry); throw new OperationError(429, 'RATE_LIMITED'); }
     },
     async login(req, res, input) {

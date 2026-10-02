@@ -1,11 +1,11 @@
 // Presentation only: the application owns records, sorting and every CRUD operation.
 export function createMobileRecords({ document, media, labels, publicFields, display, isOwner, canAct, isBusy,
-  openEdit, openDelete, openTransfer, wishlist, desktopResults, cover, favorite }) {
+  openEdit, openDelete, openTransfer, wishlist, desktopResults, cover, favorite, streaming }) {
   const get = id => document.querySelector(`#${id}`);
   const root = get('mobile-results'), list = get('mobile-records'), detail = get('detail-dialog');
   const content = get('detail-content'), actions = get('detail-actions');
   const status = get('status');
-  let focusRecord = null, buttons = new Map(), quickButtons = new Map(), handingOff = false;
+  let focusRecord = null, buttons = new Map(), quickButtons = new Map(), handingOff = false, disposeStreaming = null;
   const key = record => record.id?.toLowerCase() || record;
   function restoreFocus(kind) {
     if (focusRecord === null || isBusy() || detail.open) return;
@@ -15,18 +15,19 @@ export function createMobileRecords({ document, media, labels, publicFields, dis
     else status.focus();
     focusRecord = null;
   }
-  function clearDetail() { content.replaceChildren(); actions.replaceChildren(); }
+  function clearDetail() { disposeStreaming?.(); disposeStreaming = null; content.replaceChildren(); actions.replaceChildren(); }
   detail.addEventListener('close', () => { clearDetail(); if (!handingOff) setTimeout(restoreFocus, 0); });
   get('close-detail').addEventListener('click', () => detail.close());
   function open(record) {
     if (isBusy()) return;
     focusRecord = key(record);
     display(content, record, isOwner() ? labels : Object.fromEntries(publicFields.map(field => [field, labels[field]])));
+    disposeStreaming = streaming?.(content, record);
     actions.replaceChildren();
     if (isOwner()) {
       for (const [title, callback] of [['Редактировать', openEdit], ['Удалить', openDelete], ...(wishlist ? [['Добавить в коллекцию', openTransfer]] : [])]) {
         const button = document.createElement('button'); button.type = 'button'; button.textContent = title;
-        button.className = 'button-secondary'; button.disabled = !canAct();
+        button.className = callback === openTransfer ? '' : 'button-secondary'; button.disabled = !canAct();
         button.addEventListener('click', () => {
           if (!canAct()) return;
           handingOff = true; detail.close(); clearDetail(); callback(record); handingOff = false;

@@ -1,5 +1,6 @@
+import { mountStreaming, createStreamingDialog } from './streaming-ui.mjs';
 import { createMobileRecords } from './mobile-records.mjs';
-import { coverControl, favoriteControl, createCoverDialog, recordCover } from './cover-ui.mjs';
+import { coverControl, favoriteControl, createCoverDialog, createAddCoverField, recordCover } from './cover-ui.mjs';
 import { bindDailyQuote } from './daily-quote-ui.mjs';
 import { bindBugReport } from './bug-report-ui.mjs';
 import { SORT_FIELDS, sortRecords, inputDate, displayValue, recordsCsv, renderStoreLink } from './record-presentation.mjs';
@@ -49,6 +50,7 @@ let viewRecords = [];
 let displayedRecords = [];
 const downloadButton = document.querySelector('#download-records');
 function clearDisplayed(forgetFocus = false) {
+  streamingDialog.reset();
   mobileView.reset(forgetFocus);
   viewRecords = []; displayedRecords = []; downloadButton.disabled = true; downloadButton.hidden = true;
 }
@@ -199,7 +201,11 @@ function renderRecords(records) {
         else content.textContent = record[field] ?? '';
         cell.append(content);
       } else if (field === 'album') {
-        cell.className = 'record-album'; cell.textContent = record.album;
+        cell.className = 'record-album';
+        const title = document.createElement('button'); title.type = 'button'; title.className = 'album-streaming-button';
+        title.disabled = owner && needsRefresh; title.textContent = record.album; title.setAttribute('aria-haspopup', 'dialog');
+        title.setAttribute('aria-label', `Прослушать альбом: ${record.artist} — ${record.album}`);
+        title.addEventListener('click', () => streamingDialog.open(record, title)); cell.append(title);
       } else cell.textContent = displayValue(field, record[field]);
       row.append(cell);
     }
@@ -295,6 +301,9 @@ for (const [name, title] of Object.entries(isWishlist ? { ...labels, ...Object.f
   if (name === 'purchasePrice') bindInputConstraint(input, formatPriceInput);
 
 }
+const addCover = createAddCoverField({ document, isOpen: () => dialog.open,
+  onChange: () => { if (!writing && !checking) editDraft(); } });
+recordForm.addEventListener('reset', () => addCover.reset());
 function readDraft() {
   const input = Object.fromEntries(Object.keys(activeLabels).map(key => [key, formInputs.get(key).value.trim() ? formInputs.get(key).value : null]));
   if (Object.hasOwn(input, 'purchaseDate')) input.purchaseDate = inputDate(input.purchaseDate);
@@ -447,6 +456,7 @@ function editDraft() {
   confirmButton.textContent = editSource ? 'Подтвердить изменения' : transferSource ? 'Подтвердить перенос' : 'Подтвердить добавление';
   transferTarget = null; draft = null; recordFields.hidden = false; preview.hidden = true;
   confirmButton.hidden = editButton.hidden = true; previewButton.hidden = false;
+  addCover.show(!editSource && !transferSource); addCover.disable(false);
 }
 document.querySelector('#add-record').addEventListener('click', async () => {
   if (!owner || authBusy || needsRefresh || writing) return;
@@ -489,7 +499,12 @@ recordForm.addEventListener('submit', async event => {
     }
     return;
   }
+  if (!editSource && !transferSource && !addCover.validate()) {
+    recordError.textContent = addCover.pending ? 'Дождитесь загрузки обложки.' : 'Проверьте выбранную обложку.';
+    return;
+  }
   const run = dialogRun;
+  addCover.disable(true);
   checking = true; previewButton.disabled = true; recordFields.disabled = true;
   try {
     const { collection, wishlist } = await additionRecords();
@@ -527,7 +542,7 @@ recordForm.addEventListener('submit', async event => {
   } catch {
     if (run === dialogRun && dialog.open) recordError.textContent = 'Не удалось проверить коллекцию. Изменения не записаны.';
   } finally {
-    if (run === dialogRun) { checking = false; previewButton.disabled = Boolean(editConflict); recordFields.disabled = false; }
+    if (run === dialogRun) { checking = false; previewButton.disabled = Boolean(editConflict); recordFields.disabled = false; addCover.disable(Boolean(draft)); }
   }
 });
 function requireRefresh() {
@@ -562,6 +577,10 @@ confirmButton.addEventListener('click', async () => {
   writing = true; invalidateReads(); confirmButton.disabled = editButton.disabled = true;
   const source = transferSource;
   const target = transferTarget;
+  const selectedCover = !source && !editSource ? addCover.file : null;
+  const submitted = draft;
+  const addEpoch = authVersion;
+  addCover.disable(true);
   try {
     if (source) {
       const body = target ? { collectionId: target.id, collectionRevision: await recordRevision(target) }
@@ -577,8 +596,29 @@ confirmButton.addEventListener('click', async () => {
       const created = await writeRequest(editing ? `${endpoint}/${editing.id}` : endpoint, {
         method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...(editing ? { 'If-Match': await revisionFor(editing) } : {}) }, body: JSON.stringify(draft)
       });
-      dialog.close(); operationStatus.textContent = `${editing ? 'Изменено' : 'Добавлено'}: ${created.artist} — ${created.album}`;
+      let coverFailure = null;
+      if (selectedCover) {
+        // Do not attach anything until the metadata response identifies the confirmed new record.
+        try {
+          validateRecords([created]);
+          if (Object.entries(submitted).some(([key, value]) => created[key] !== value)) throw Error('metadata');
+        } catch { throw { error: 'RESULT_UNCONFIRMED' }; }
+        try {
+          if (!owner || addEpoch !== authVersion) throw { error: 'RESULT_UNCONFIRMED' };
+          const updated = await writeRequest(`${endpoint}/${created.id}/cover`, { method: 'PUT',
+            headers: { 'Content-Type': selectedCover.type, 'If-Match': await revisionFor(created) }, body: selectedCover });
+          try { validateRecords([updated]); if (updated.id !== created.id || !updated.coverId) throw Error('cover'); }
+          catch { throw { error: 'RESULT_UNCONFIRMED' }; }
+        } catch (cause) { coverFailure = cause; }
+      }
+      dialog.close();
+      operationStatus.textContent = coverFailure
+        ? coverFailure.error === 'RESULT_UNCONFIRMED'
+          ? `Пластинка добавлена, результат добавления обложки не подтверждён: ${created.artist} — ${created.album}. Обновите список перед дальнейшими действиями. Автоматического повтора нет.`
+          : `Пластинка добавлена, но обложку добавить не удалось: ${created.artist} — ${created.album}. Проверьте список и добавьте обложку через обычное окно обложки.`
+        : `${editing ? 'Изменено' : 'Добавлено'}: ${created.artist} — ${created.album}`;
       await showCollection(editing ? lastCriteria : {});
+      if (owner && ['RESULT_UNCONFIRMED', 'RECORD_CHANGED', 'NOT_FOUND'].includes(coverFailure?.error)) requireRefresh();
     }
   } catch (error) {
     recordError.textContent = messageFor(error.error);
@@ -753,8 +793,12 @@ mobileDirection.addEventListener('click', () => {
   activeSort = { ...activeSort, direction: activeSort.direction === 'asc' ? 'desc' : 'asc' };
   updateSortHeadings(); if (viewRecords.length) renderRecords(viewRecords);
 });
-const anyDialogOpen = () => [dialog, deleteDialog, loginDialog, document.querySelector('#report-dialog'), document.querySelector('#cover-dialog')].some(item => item.open);
+const anyDialogOpen = () => [dialog, deleteDialog, loginDialog, document.querySelector('#report-dialog'), document.querySelector('#cover-dialog'), document.querySelector('#streaming-dialog')].some(item => item.open);
+const streamingDialog = createStreamingDialog({ document, fetch, cover: recordCover,
+  media: window.matchMedia('(max-width: 1120px)'),
+  isBusy: () => loading || writing || authBusy || anyDialogOpen() || document.querySelector('#detail-dialog').open });
 const mobileView = createMobileRecords({ document, media: window.matchMedia('(max-width: 1120px)'), labels, publicFields: PUBLIC_FIELDS,
+  streaming: (target, record) => mountStreaming({ document, target, record, fetch }),
   display: displayRecord, isOwner: () => owner, canAct: () => owner && !authBusy && !needsRefresh && !writing && !loading,
   isBusy: () => loading || writing || authBusy || anyDialogOpen(), openEdit, openDelete, openTransfer, wishlist: isWishlist, desktopResults: container,
   cover: record => coverControl(document, record, owner, openCover), favorite: record => favoriteControl(document, record, owner, toggleFavorite) });

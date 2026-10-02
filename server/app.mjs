@@ -11,6 +11,8 @@ import { UUID } from '../src/base-record.mjs';
 
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
+  ['/src/streaming.mjs', ['../src/streaming.mjs', 'text/javascript; charset=utf-8']],
+  ['/assets/streaming-ui.mjs', ['../prototype/streaming-ui.mjs', 'text/javascript; charset=utf-8']],
   ['/src/cover-record.mjs', ['../src/cover-record.mjs', 'text/javascript; charset=utf-8']],
   ['/src/daily-quote.mjs', ['../src/daily-quote.mjs', 'text/javascript; charset=utf-8']],
   ['/assets/cover-ui.mjs', ['../prototype/cover-ui.mjs', 'text/javascript; charset=utf-8']],
@@ -49,12 +51,12 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite }, { auth, quoteSource } = {}) {
+export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite, lookupStreaming }, { auth, quoteSource } = {}) {
   let coverUploading = false;
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src https://embed.music.apple.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     res.setHeader('Referrer-Policy', 'same-origin');
     const path = req.url.split('?')[0];
     try {
@@ -88,6 +90,18 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         auth.limit(req, 'report', res);
         if (!createReport) throw new OperationError(503, 'REPORT_NOT_CONFIGURED');
         json(res, 201, await createReport(await readBody(req, 16384))); return;
+      }
+      if (path === '/api/streaming/lookup') {
+        if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); throw new OperationError(405, 'METHOD_NOT_ALLOWED'); }
+        auth.limit(req, 'streaming', res);
+        if (!lookupStreaming) throw new OperationError(503, 'STREAMING_UNAVAILABLE');
+        if (Number(req.headers['content-length']) > 4096) throw new OperationError(400, 'INVALID_REQUEST');
+        const bodyTimer = setTimeout(() => req.destroy(), 5000);
+        let input;
+        try { input = await readBody(req, 4096); }
+        finally { clearTimeout(bodyTimer); }
+        json(res, 200, await lookupStreaming(input));
+        return;
       }
       if (unsafe) auth.requireOwner(req, session);
       if (req.method === 'GET' && path.startsWith('/api/') && !session) auth?.limit(req, 'read', res);
@@ -173,7 +187,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       res.writeHead(200, { 'Content-Type': file[1], 'Content-Length': content.length });
       res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) {
-      if (error instanceof OperationError) { json(res, error.status, { error: error.message, ...error.details }); return; }
+      if (error instanceof OperationError) { if (error.details?.retryAfter) res.setHeader('Retry-After', String(error.details.retryAfter)); json(res, error.status, { error: error.message, ...error.details }); return; }
       const code = error instanceof WishlistDataError ? 'WISHLIST_DATA_INVALID'
         : error instanceof WishlistSourceError ? 'WISHLIST_SOURCE_UNAVAILABLE'
         : error instanceof CollectionDataError ? 'COLLECTION_DATA_INVALID'

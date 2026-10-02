@@ -22,8 +22,8 @@ for (const wishlist of [false, true]) for (const owner of [false, true]) for (co
     const row = ui.get('#records').children[0].children[0];
     assert.equal(row.children[0].className, 'quick-cell');
     assert.equal(row.children[1].textContent, source.artist);
-    assert.equal(row.children[2].textContent, source.album);
-    assert.equal(row.children[2].children.length, 0);
+    assert.equal(row.children[2].children[0].textContent, source.album);
+    assert.equal(row.children[2].children.length, 1);
     assert.equal(row.children[0].hidden, wishlist && !owner && !hasCover);
     assert.equal(ui.get('#quick-heading').hidden, wishlist && !owner && !hasCover);
     const quick = row.children[0].children[0];
@@ -127,7 +127,7 @@ for (const owner of [false, true]) test(`favorite filter + CSV ${owner}: public 
     assert.equal(ui.get('#favorite-only').checked, true); assert.equal(ui.get('#download-records').hidden, true);
   } else { await find(ui.get('#records'), 'favorite-note').fire('click'); assert.equal(writes, 0); }
 });
-test('metadata forms contain no cover/favorite inputs; guest direct handlers cannot mutate', async () => {
+test('metadata payload fields exclude cover/favorite; optional Add file has no metadata name; guest direct handlers cannot mutate', async () => {
   let writes = 0;
   const ui = await prototypeUI(async () => { writes++; return response([]); }, { owner: false });
   await ui.run(`toggleFavorite(${JSON.stringify(record)})`); assert.equal(writes, 0);
@@ -135,7 +135,9 @@ test('metadata forms contain no cover/favorite inputs; guest direct handlers can
   for (const file of ['index.html', 'wishlist.html']) {
     const html = await readFile(new URL(`../prototype/${file}`, import.meta.url), 'utf8');
     const form = html.match(/<form id="record-form"[\s\S]*?<\/form>/)[0];
-    assert.ok(!/cover|favorite/.test(form));
+    assert.ok(!/name="(?:coverId|favorite)"/.test(form));
+    assert.match(form, /id="add-cover-file" type="file"/);
+    assert.doesNotMatch(form.match(/<input id="add-cover-file"[^>]*>/)[0], /\bname=/);
   }
 });
 
@@ -165,7 +167,7 @@ test('3D presentation column is unsortable; long album names do not relocate con
   for (const row of ui.get('#records').children[0].children) {
     assert.equal(row.children[0].className, 'quick-cell');
     assert.deepEqual(row.children[0].children[0].children.map(n => n.className), ['favorite-note', 'cover-control']);
-    assert.equal(row.children[2].children.length, 0);
+    assert.equal(row.children[2].children.length, 1);
     assert.equal(row.children.at(-1).children[0].className, 'row-actions');
   }
   await ui.get('#download-records').fire('click');

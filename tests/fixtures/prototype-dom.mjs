@@ -1,3 +1,4 @@
+import { mountStreaming, createStreamingDialog } from '../../prototype/streaming-ui.mjs';
 import { createMobileRecords } from '../../prototype/mobile-records.mjs';
 import { bindBugReport } from '../../prototype/bug-report-ui.mjs';
 import * as coverUI from '../../prototype/cover-ui.mjs';
@@ -58,13 +59,14 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true, compa
     createElement: tag => new Element(tag), createDocumentFragment: () => new Element()
   };
   document.querySelector('#table-container').hidden = true;
+  document.querySelector('#table-container').append(document.querySelector('#records'));
   const searchInputs = new Map(['artist', 'album', 'albumYear', 'genre'].map(name => {
     const input = document.querySelector(name === 'albumYear' ? '#search-year' : `#search-${name}`);
     input.id = name === 'albumYear' ? 'search-year' : `search-${name}`; return [name, input];
   }));
   const context = vm.createContext({ document, window: { addEventListener() {}, matchMedia: () => media }, fetch, Event, URL, Blob, setTimeout,
     FormData: class { constructor(form) { return [...(form === document.querySelector('#search-form') ? searchInputs : namedInputs)].map(([name, input]) => [name, input.value]); } },
-    createMobileRecords, bindBugReport, bindDailyQuote, ...coverUI, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
+    mountStreaming, createStreamingDialog, createMobileRecords, bindBugReport, bindDailyQuote, ...coverUI, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
   const source = (await readFile(new URL('../../prototype/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   vm.runInContext(source, context);
   vm.runInContext(`applySession(${JSON.stringify(owner ? {role:'owner',csrfToken:'test-csrf'} : {role:'guest'})})`, context);

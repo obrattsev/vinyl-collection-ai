@@ -40,7 +40,7 @@ For a future consistent backup: pause owner writes, wait for their completion, s
 
 For restore: stop only the application; retain the current covers directory under a separate recovery name, restore the chosen archive into `/var/lib/vinyl-collection-ai`, and check owners/modes, every referenced master/thumbnail and `.holds`. Restore the matching Sheets snapshot only if data rollback is intended; do not replace newer legitimate writes with an old snapshot. Never delete unresolved holds or infer a failed Sheets write from a transient missing result. Start the application and check HTTPS/API/covers. Code-only rollback uses the retained previous release and does not automatically roll back Sheets or covers.
 
-3B (including real reports) and 3C are complete. 3D is deployed; final visual production acceptance is pending. Streaming remains the last separate package of stage 3 and was not started. Dynamic/AI quote selection remains stage 4.
+3B (including real reports) and 3C are complete. 3D is deployed; final visual production acceptance is pending. Streaming was not started at this deployment; its current 3E status is tracked in [backlog](backlog.md). Dynamic/AI quote selection is now stage 5; stage 4 is PostgreSQL and multi-user migration.
 
 ## Backfill result
 

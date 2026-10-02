@@ -30,7 +30,7 @@ Node 24: `node scripts/local-acceptance.mjs`. Открыть http://127.0.0.1:80
 
 Self-review включает diff, shared queue, обработку ролей и stale responses, typed Sheets writes, public projection, scope CSV, пути файлов/лимиты декодера. Неизвестные операции сохраняют holds; автоматический сбор оставшихся файлов не реализован намеренно. Удаление самой записи может оставить неиспользуемый файл до отдельной сверки. Прямые параллельные правки ссылок в Sheets не защищены транзакцией.
 
-HEIC/HEIF отложены по решению владельца. Реальный curated source содержит согласованные 10 цитат; стенд использует его без override. Linux/RSS внутри MemoryMax=512M, backup/restore и новые заголовки Sheets проверены при разрешённом deployment; см. production-отчёт. 3B/3C и подключённый production reports считаются завершёнными; Streaming не начат. Финализация Git, deployment и initial cover backfill разрешены; фактический production результат фиксируется отдельно.
+HEIC/HEIF отложены по решению владельца. Реальный curated source содержит согласованные 10 цитат; стенд использует его без override. Linux/RSS внутри MemoryMax=512M, backup/restore и новые заголовки Sheets проверены при разрешённом deployment; см. production-отчёт. 3B/3C и подключённый production reports считаются завершёнными; Streaming вынесен в отдельный 3E, актуальный статус — в [backlog](backlog.md). Финализация Git, deployment и initial cover backfill разрешены; фактический production результат фиксируется отдельно.
 
 ## UX-коррекция после основной acceptance
 

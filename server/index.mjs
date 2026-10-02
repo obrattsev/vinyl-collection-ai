@@ -1,3 +1,4 @@
+import { createStreamingService } from './streaming-service.mjs';
 import { reportConfiguration, readRelease, createReportRepository, createReportService } from './bug-reports.mjs';
 import { createAuth, authConfiguration } from './auth.mjs';
 import { createWishlistRepository } from './google-sheets-wishlist.mjs';
@@ -34,6 +35,7 @@ async function start() {
   Object.assign(services, createPresentationService({ collection, wishlist, covers, serial }));
   const reportConfig = reportConfiguration(process.env);
   if (reportConfig) services.createReport = createReportService(createReportRepository({ ...reportConfig, keyFile }), { version: await readRelease() });
+  services.lookupStreaming = createStreamingService();
   const server = createApp(services, { auth });
   server.on('error', () => {
     console.error('Не удалось запустить сервер. Проверьте доступность локального порта.');

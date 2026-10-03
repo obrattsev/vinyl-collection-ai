@@ -1,5 +1,8 @@
 # 3D — Favorites, Covers, Daily Quote
 
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Ожидается финальная визуальная production acceptance владельца.
+
+
 Статус: повторная local acceptance 3D принята владельцем. Финальные правки геометрии ♪ и закрытия detail проверены автоматически. Production deployment и initial cover backfill выполнены 30.09.2026; финальная визуальная production acceptance ожидается. [Отчёт](stage-3d-production.md). 3B/3C завершены, production Bug Reports подключён и проверен по подтверждению владельца. Streaming не входит в 3D. Владелец разрешил commit/push/PR/merge/deployment и одноразовый initial cover backfill.
 
 ## Модель и API
@@ -33,7 +36,7 @@ Guest получает 9 прежних публичных полей + `cover: 
 
 ## Presentation
 
-Ниже — контракт deployed 3D. Controlled rollback локального 3E сохраняет этот Cover/mobile UX; отдельный desktop Streaming dialog открывается только через Album. Разрешённые исправления scrollbar/плотности Wish-list описаны в [3E](stage-3e-spec.md). Production пока остаётся на 3D.
+Ниже — контракт deployed 3D. Controlled rollback локального 3E сохраняет этот Cover/mobile UX; отдельный desktop Streaming dialog открывается только через Album. Разрешённые исправления scrollbar/плотности Wish-list описаны в [3E](stage-3e-spec.md). Production обновлён до 3E; см. production-отчёт 3E.
 
 - Обложка — отдельное быстрое действие у существующей записи; в Add/Edit controls нет. Guest без cover не получает placeholder или пустую область; owner получает компактный «+» с tooltip/accessible label «Добавить обложку».
 - Desktop: одна компактная первая колонка до Исполнителя: Collection — ♪, затем cover; Wish-list — только cover. Отдельных колонок Favorite/Cover нет. Заголовок доступен screen reader и не является сортировкой; album остаётся обычной metadata-ячейкой. Thumbnail 36×36. При отсутствии всех cover у guest Wish-list колонка скрыта целиком; в смешанном наборе пустые ячейки не содержат placeholder. Mobile: 48×48 слева, исполнитель/альбом/год · жанр рядом. Record, cover и favorite — отдельные sibling controls, без nested buttons. Визуальный Favorite 36×36 на desktop и 48×48 на mobile; hit area не меньше 44×44, active не меняет layout.

@@ -1,5 +1,8 @@
 # Vinyl Collection AI — production
 
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Ожидается финальная визуальная production acceptance владельца.
+
+
 Развёрнуто 24 сентября 2026 на https://vinyl-collection.ru.
 Первый production release: `e8d8bcc2296fbb7c2369cbece51aa95b20eb92ad` (PR #17).
 Технические проверки первого deployment и ручная внешняя acceptance владельца (guest, оба раздела, поиск, login/logout) пройдены. Канонические URL завершены в рамках Этапа 2 по подтверждению владельца. Активный SHA хранится в файле RELEASE и имени каталога current на VPS.

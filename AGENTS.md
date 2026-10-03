@@ -1,5 +1,8 @@
 # Работа над Vinyl Collection AI
 
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](docs/stage-3e-production.md). Ожидается финальная визуальная production acceptance владельца.
+
+
 - Перед изменениями читать README, относящиеся к операции docs и backlog.
 - Roadmap определяется docs/backlog.md. Этап 1 — завершённый локальный MVP без AI на реальных Google Sheets; acceptance обеих коллекций пройден. Этап 2 завершён по подтверждению владельца; 3A реализован и принят владельцем по итогам локальной acceptance, 3B принят по local acceptance; 3C Presentation polish и уточнение даты DD.MM.YYYY приняты владельцем, 3B/3C завершены, production Bug Reports проверен; 3D Favorites/Covers/Daily Quote реализован и развёрнут, initial backfill завершён; local acceptance принята, финальная визуальная production acceptance ожидается; отчёт docs/stage-3d-production.md; 3E Streaming принят владельцем по local acceptance; финальные Add Cover и mobile Transfer variant также приняты; commit/push/PR/merge/deploy разрешены владельцем; этапы 4–5 не начаты: этап 2 — VPS → аутентификация owner → публичный read-only просмотр collection/wish-list; этап 3 — развитие без AI, включая редактирование; этап 4 — PostgreSQL и многопользовательский режим (4A–4F); этап 5 — AI, включая Dynamic Daily Quote с curated fallback. Порядок задач этапа 2 отражает roadmap, а не обязательную техническую последовательность.
 - Соблюдать статусы документов. Не реализовывать неподтверждённые продуктовые решения; при неоднозначности спрашивать владельца. Продолжать независимую согласованную работу.

@@ -1,5 +1,8 @@
 # 3E — Streaming по требованию
 
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Ожидается финальная визуальная production acceptance владельца.
+
+
 Статус: реализация в `feature/stage-3e`, local acceptance после controlled rollback подтверждена владельцем; [две финальные правки](stage-3e-final-polish.md) приняты владельцем; Git/deployment разрешены 02.10.2026. База — main `fb073dbe219d602890b66ad6253824507eb86a29`, включает runtime 3D `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` и production-отчёт. 3D deployment/backfill выполнены; финальная визуальная production acceptance в предыдущем отчёте остаётся pending. 3E — последний функциональный пакет Stage 3; до local acceptance, разрешённой финализации Git, deployment и production acceptance пакет и этап не считаются завершёнными. Deployment разрешён владельцем 02.10.2026; схема и данные Sheets не меняются.
 
 ## Пользовательский контракт после controlled rollback

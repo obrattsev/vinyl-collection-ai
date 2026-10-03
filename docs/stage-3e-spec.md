@@ -1,6 +1,6 @@
 # 3E — Streaming по требованию
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B–4F и Stage 5 не начаты.
 
 
 Статус: реализовано, опубликовано в runtime `da16da2`, local и финальная production acceptance подтверждены владельцем; Stage 3 закрыт. [Отчёт](stage-3e-production.md). Историческая база разработки — `fb073dbe219d602890b66ad6253824507eb86a29`; схема и данные Sheets при выпуске 3E не менялись.

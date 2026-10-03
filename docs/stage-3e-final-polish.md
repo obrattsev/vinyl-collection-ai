@@ -1,6 +1,6 @@
 # Последние две правки Stage 3E
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B–4F и Stage 5 не начаты.
 
 
 Local acceptance Streaming/controlled rollback **пройдена по подтверждению владельца**. После неё разрешены только optional Cover при первоначальном Add и primary variant mobile Wish-list Transfer. Эти правки реализованы в `feature/stage-3e` и приняты владельцем с одной поправкой: блок обложки в Add перенесён наверх, перед полями пластинки, в обоих разделах, как в подтверждении. Дальнейшее функциональное расширение Stage 3 прекращено. Финальная правка порядка обложки принята 02.10.2026; владелец разрешил commit/push/PR/merge/deploy. Результат выпуска фиксируется отдельно.

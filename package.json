@@ -8,10 +8,15 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:pg": "node --test tests/postgres/*.test.mjs",
+    "pg:migrate": "node scripts/pg-migrate.mjs",
+    "pg:import": "node scripts/pg-import.mjs",
+    "acceptance:pg": "node scripts/pg-acceptance.mjs"
   },
   "dependencies": {
     "google-auth-library": "11.0.2",
+    "pg": "8.23.1",
     "sharp": "0.35.5"
   }
 }

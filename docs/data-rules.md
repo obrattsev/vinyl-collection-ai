@@ -1,5 +1,7 @@
 # Общие правила данных
 
+Дополнение 4A: параллельный PostgreSQL data layer реализован для local tests/acceptance, не включён в production. Точные поля моделей и business rules ниже сохраняются; storage mapping, ownership/FK, revisions, ordering и import contract — в [Stage 4A](stage-4a-postgresql.md). Production Sheets остаются source of truth до 4B.
+
 Статус: действующие правила завершённого локального MVP этапа 1; условная legacy-миграция и будущие возможности отмечены отдельно. Связанные документы: [README](../README.md), [backlog](backlog.md).
 
 ## Хранение и поля

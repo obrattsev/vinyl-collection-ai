@@ -1,6 +1,6 @@
 # Controlled rollback 3E — 02.10.2026
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B–4F и Stage 5 не начаты.
 
 
 Статус: local acceptance 3E после controlled rollback **пройдена по подтверждению владельца**. Ниже сохранён исторический отчёт агентской проверки. Две последующие финальные правки описаны в [отдельном отчёте](stage-3e-final-polish.md) и приняты владельцем; Git/deployment разрешены 02.10.2026 и впоследствии выполнены; финальный статус — в production-отчёте выше.

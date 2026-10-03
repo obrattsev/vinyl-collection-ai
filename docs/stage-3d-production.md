@@ -1,6 +1,6 @@
 # Production 3D — 30 September 2026
 
-Runtime release: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63`, merged [PR #21](https://github.com/obrattsev/vinyl-collection-ai/pull/21). Previous release `4c266df77eaf2f7ed1f749ba46ec6b35d4231316` remains available for code rollback. Repeat local acceptance was approved by the owner; final UI adjustments passed 301/301 tests and diff/security/data-integrity review. Final visual production acceptance belongs to the owner.
+Runtime release: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63`, merged [PR #21](https://github.com/obrattsev/vinyl-collection-ai/pull/21). Previous release `4c266df77eaf2f7ed1f749ba46ec6b35d4231316` remains available for code rollback. Repeat local acceptance was approved by the owner; final UI adjustments passed 301/301 tests and diff/security/data-integrity review. Final visual production acceptance was subsequently confirmed by the owner when closing Stage 3; see [3E report](stage-3e-production.md).
 
 ## Deployment and configuration
 
@@ -40,7 +40,7 @@ For a future consistent backup: pause owner writes, wait for their completion, s
 
 For restore: stop only the application; retain the current covers directory under a separate recovery name, restore the chosen archive into `/var/lib/vinyl-collection-ai`, and check owners/modes, every referenced master/thumbnail and `.holds`. Restore the matching Sheets snapshot only if data rollback is intended; do not replace newer legitimate writes with an old snapshot. Never delete unresolved holds or infer a failed Sheets write from a transient missing result. Start the application and check HTTPS/API/covers. Code-only rollback uses the retained previous release and does not automatically roll back Sheets or covers.
 
-3B (including real reports) and 3C are complete. 3D is deployed; final visual production acceptance is pending. Streaming was not started at this deployment; its current 3E status is tracked in [backlog](backlog.md). Dynamic/AI quote selection is now stage 5; stage 4 is PostgreSQL and multi-user migration.
+3B (including real reports) and 3C are complete. 3D is deployed; final visual production acceptance was subsequently confirmed by the owner and Stage 3 is closed. Streaming was not started at this deployment; its current 3E status is tracked in [backlog](backlog.md). Dynamic/AI quote selection is now stage 5; stage 4 is PostgreSQL and multi-user migration.
 
 ## Backfill result
 

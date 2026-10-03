@@ -1,6 +1,6 @@
 # Vinyl Collection AI — production
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Ожидается финальная визуальная production acceptance владельца.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
 
 
 Развёрнуто 24 сентября 2026 на https://vinyl-collection.ru.
@@ -87,7 +87,7 @@ nginx -t
 
 ## 3D — развёрнут 30.09.2026
 
-Runtime SHA: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` (PR #21). Схема, storage, backup/restore и initial backfill выполнены: 21/28 Collection и 6/12 Wish-list получили cover, 13 пропусков, 0 ошибок записи. Полные результаты, источники, ограничения проверки и процедура восстановления — [production-отчёт 3D](stage-3d-production.md). Финальная визуальная production acceptance ожидается.
+Runtime SHA: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` (PR #21). Схема, storage, backup/restore и initial backfill выполнены: 21/28 Collection и 6/12 Wish-list получили cover, 13 пропусков, 0 ошибок записи. Полные результаты, источники, ограничения проверки и процедура восстановления — [production-отчёт 3D](stage-3d-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт.
 
 3B/3C завершены, production Bug Reports подключён/проверен по подтверждению владельца; долг закрыт. Повторная local acceptance 3D принята; владелец разрешил финализацию Git, deployment после merge, согласованную схему Sheets и initial cover backfill. Требования новых колонок, COVERS_DIR, Linux sharp/MemoryMax=512M, body limit proxy и обязательный согласованный backup/restore Sheets + всего covers описаны в [3D](stage-3d-spec.md#перед-отдельным-production-deployment). Перед изменениями проверить фактический production state и отсутствие незавершённых owner writes. При необходимости интерактивного SSH входа остановиться на этом шаге.
 
@@ -99,4 +99,8 @@ Runtime SHA: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` (PR #21). Схема, st
 
 ## 3E — разрешённый выпуск 02.10.2026
 
-Владелец принял Streaming и финальные Add Cover/mobile Transfer правки, затем разрешил commit/push/PR/merge/deploy. Подтверждено отсутствие незавершённых owner writes и приостановка изменений на время выпуска. Применяется существующий runbook: архив merged main, закреплённый runtime/npm ci, RELEASE до запуска, атомарная смена current, restart только приложения. Новые зависимости, env, миграции Sheets и изменения nginx/systemd не нужны. Предыдущий release 9e4678f сохраняется для rollback. Production smoke — read-only, включая on-demand lookup; реальные CRUD/Cover writes не выполняются. Финальная визуальная production acceptance остаётся за владельцем.
+Владелец принял Streaming и финальные Add Cover/mobile Transfer правки, затем разрешил commit/push/PR/merge/deploy. Подтверждено отсутствие незавершённых owner writes и приостановка изменений на время выпуска. Применяется существующий runbook: архив merged main, закреплённый runtime/npm ci, RELEASE до запуска, атомарная смена current, restart только приложения. Новые зависимости, env, миграции Sheets и изменения nginx/systemd не нужны. Предыдущий release 9e4678f сохраняется для rollback. Production smoke — read-only, включая on-demand lookup; реальные CRUD/Cover writes не выполняются. Выпуск выполнен; финальная визуальная production acceptance подтверждена владельцем, Stage 3 закрыт. [Отчёт](stage-3e-production.md).
+
+## Согласованный Stage 4 — ещё не реализован
+
+Текущий runtime остаётся Stage 3 (`da16da2`), storage — Sheets + filesystem Covers. PostgreSQL foundation — 4A; capacity preflight, установка и owner migration/production cutover — 4B, отдельная операция. После принятого cutover PostgreSQL станет единственным runtime storage Collection/Wish-list; исходные Sheets останутся архивом, Bug Reports — отдельным Sheets storage. Обязательны согласованный DB/Covers backup, offsite копия, restore rehearsal и разграничение code/data rollback. Offsite storage выбирается до migration 4B; email provider — непосредственно перед 4C. План эксплуатации и rollback boundaries — в [backlog](backlog.md#этап-4--postgresql-и-многопользовательский-режим); это не инструкция выполнять production изменения сейчас.

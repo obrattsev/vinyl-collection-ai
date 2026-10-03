@@ -1,9 +1,9 @@
 # Backlog Vinyl Collection AI
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Ожидается финальная визуальная production acceptance владельца.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
 
 
-Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–2 выполнены; этап 3 в работе, этапы 4–5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
+Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, реализация этапов 4–5 не начата. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
 
 ## Этап 1 — Полный локальный MVP без AI на реальных Google Sheets
 
@@ -42,7 +42,7 @@ Backlog описывает текущее состояние продукта и
 
 ## Этап 3 — Развитие продукта без AI
 
-**Статус: в работе.** 3A, 3B и 3C завершены по подтверждению владельца. Production Bug Reports подключён и проверен; эксплуатационный долг 3B закрыт. Текущий 3D: Favorites (3.9), Covers (3.10), Daily Quote (3.15) — реализованы и развёрнуты; повторная local acceptance принята владельцем. Схема Sheets, backup/restore covers, deployment и одноразовый initial backfill выполнены; финальная визуальная production acceptance ожидается. [Отчёт](stage-3d-production.md). 3E Streaming (3.11) — финальный функциональный пакет, реализован в отдельной ветке; local acceptance владельца пройдена; две финальные правки приняты владельцем; Git/deployment разрешены 02.10.2026. Финализация Git и deployment выполнены; финальная визуальная production acceptance ожидается. Этап 3 не завершён. Активный production SHA фиксируется в RELEASE на VPS.
+**Статус: ЗАКРЫТ по подтверждению владельца.** Пакеты 3A–3E реализованы, приняты и опубликованы. Production Bug Reports проверен; схема Sheets, backup/restore Covers и initial backfill выполнены. Streaming, финальные Add Cover и mobile Transfer приняты. Последний принятый runtime release — `da16da2dd257ee7175278ddb38ebee31aa7f2138` (PR #23), отчёт — PR #24; 386/386 tests, production smoke и финальная визуальная production acceptance пройдены. [Production-отчёт](stage-3e-production.md). UI и функции Stage 3 являются regression contract Stage 4.
 
 ### 3.1. Редактирование записи
 
@@ -86,7 +86,7 @@ Backlog описывает текущее состояние продукта и
 
 ### 3.11. Интеграция со стриминговым сервисом
 
-3E — согласован iTunes Search API → официальный Apple Music embed → постоянная внешняя ссылка. Read-only lookup только по «Прослушать» для guest/owner обоих разделов. Desktop сохраняет полную таблицу, horizontal scroll и CRUD в конце строки; Streaming открывается в отдельном read-only Artist/Album/Cover dialog; Cover control сохраняет отдельный Stage 3D dialog без Streaming. Mobile сохраняет compact list → полный detail по роли со Streaming. Desktop-вход только через название альбома; без новой колонки и третьей quick button. Один клик автоматически выполняет RU → US только после настоящего no-result; финальное состояние — «Альбом не найден»; неоднозначность требует выбора из максимум пяти кандидатов. MusicKit, собственный audio-player и streaming fields в записях/Sheets/CSV исключены. После отклонённой local acceptance выполнен controlled rollback к pre-3E UI и минимальный Streaming patch. Дополнительно согласованы видимый native scrollbar и устранение вертикального блока действий Wish-list, растягивавшего строки. Local acceptance 3E пройдена по подтверждению владельца. Финальные optional Cover при Add и primary mobile Transfer приняты владельцем; Git/deployment разрешены 02.10.2026; после них функциональный scope Stage 3 заморожен. [Контракт](stage-3e-final-polish.md). [Контракт](stage-3e-spec.md), [локальная проверка](stage-3e-acceptance.md). Пакет и весь Stage 3 закрываются только после реализации → local acceptance владельца → commit/push/PR/merge → deployment → production acceptance владельца.
+3E — согласован iTunes Search API → официальный Apple Music embed → постоянная внешняя ссылка. Read-only lookup только по «Прослушать» для guest/owner обоих разделов. Desktop сохраняет полную таблицу, horizontal scroll и CRUD в конце строки; Streaming открывается в отдельном read-only Artist/Album/Cover dialog; Cover control сохраняет отдельный Stage 3D dialog без Streaming. Mobile сохраняет compact list → полный detail по роли со Streaming. Desktop-вход только через название альбома; без новой колонки и третьей quick button. Один клик автоматически выполняет RU → US только после настоящего no-result; финальное состояние — «Альбом не найден»; неоднозначность требует выбора из максимум пяти кандидатов. MusicKit, собственный audio-player и streaming fields в записях/Sheets/CSV исключены. После отклонённой local acceptance выполнен controlled rollback к pre-3E UI и минимальный Streaming patch. Дополнительно согласованы видимый native scrollbar и устранение вертикального блока действий Wish-list, растягивавшего строки. Local acceptance 3E пройдена по подтверждению владельца. Финальные optional Cover при Add и primary mobile Transfer приняты владельцем; Git/deployment разрешены 02.10.2026; после них функциональный scope Stage 3 заморожен. [Контракт](stage-3e-final-polish.md). [Контракт](stage-3e-spec.md), [локальная проверка](stage-3e-acceptance.md). Цикл реализации, local acceptance, commit/push/PR/merge, deployment и production acceptance завершён; пакет и Stage 3 закрыты.
 
 ### 3.12. Отправка сообщения об ошибке
 
@@ -106,41 +106,79 @@ Collection: «Показать всю коллекцию». Wish-list: «Пок�
 
 ## Этап 4 — PostgreSQL и многопользовательский режим
 
-**Статус: НЕ НАЧАТ.** Согласован roadmap; реализация 4A–4F не входит в Stage 3E. Сначала миграция хранилища с сохранением single-owner, затем пользователи и изоляция. Текущие Google Sheets contracts действуют до migration acceptance 4A.
+**Статус: архитектура и декомпозиция СОГЛАСОВАНЫ; реализация НЕ НАЧАТА.** Фиксация документации не разрешает реализацию 4A или production operations. Реализация 4A начинается отдельной командой владельца. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
 
-### 4A — PostgreSQL и миграция хранилища
+User и ownership закладываются до миграции. До успешного cutover 4B действуют текущие Sheets contracts; после него PostgreSQL — единственный runtime source of truth Collection/Wish-list. Старые Sheets сохраняются как migration archive, без runtime reads/writes и без dual-write. Bug Reports остаётся отдельной системой на Google Sheets.
 
-Проектирование PostgreSQL schema, migrations и repository/data layer. Перенести Collection, Wish-list, UUID, Favorites, Covers/references и остальные актуальные пользовательские данные. Сохранить single-owner модель и текущее поведение приложения; multi-user UI здесь не требуется.
+### 4A — Data foundation
 
-Production data migration включает backup, restore, rollback, reconciliation, сверку количества и целостности всех данных. Google Sheets перестают быть основным production storage только после успешной migration acceptance.
+Relational schema, versioned SQL migrations с checksum/lock, PostgreSQL repository/data layer и транзакционные services. Без ORM; простой Node stack с `pg`. С самого начала: User, CollectionRecord, WishlistRecord, Covers/references, ownership/FK; Favorite сохраняет семантику boolean собственной CollectionRecord, а не избранного чужих записей. Предусмотреть auth artifacts/sessions по мере реализации 4C.
 
-### 4B — Users, ownership и изоляция
+Сохранить точные record fields, UUID, metadata, null/zero/false, dates/purchase information/storeUrl, cover references, Favorites, revisions/If-Match и правила дублей. Импорт сохраняет порядок; новые timestamps не выдаются за исторические даты создания. Owner-scoped queries, constraints/indexes и транзакционная защита конкурентных изменений обязательны. Transfer становится атомарным; идемпотентность create/transfer должна учитывать потерянный ответ.
 
-User model и ownership каждой пользовательской сущности: Collection, Wish-list, Favorites, Covers и связанные данные. API работает в контексте пользователя. Существующие production данные принадлежат первому мигрированному пользователю. Обязательны security tests: пользователь A не может читать или менять private данные B даже при знании UUID/ID. Это развитие модели этапа 2 «guest + один owner», а не её текущая реализация.
+Tests: schema/FK, repository parity, duplicates, revisions, concurrency и A/B isolation на реальном изолированном PostgreSQL. Production data не мигрируются; подготовленные additive changes не меняют source of truth. Rollback: код откатывается, неиспользуемая additive schema может оставаться; destructive downgrade не обещается.
 
-### 4C — Registration / Email / Auth / Recovery
+### 4B — Owner migration и production cutover
 
-ФИО необязательно; Email и Login обязательны и уникальны. Регистрация: Email → одноразовый код на email → проверка кода → установка login/password → завершение. Если безопасное проектирование потребует иного порядка экранов, сначала согласовать изменение. Вход: Login + Password.
+Зависит от 4A. Первый существующий владелец становится обычным User; все production Collection/Wish-list/Covers/Favorites принадлежат ему. **Оба его раздела остаются public.** До открытия регистрации доступен один пользователь, но runtime уже применяет ownership. Session определяет user server-side; client-supplied owner ID не даёт прав. Все private GET/mutations, transfer, covers и favorite проверяют владельца; ошибки/conflict/duplicate responses не раскрывают чужие данные.
 
-Login служит для входа, публичного identifier и URL коллекции. Перед реализацией определить символы, длину, case sensitivity, reserved names, уникальность, возможность изменения и судьбу старого URL.
+Обязательный план: capacity preflight → rehearsal в изолированной БД → freeze/drain writes → согласованный backup Sheets/Covers (включая `.holds`) и DB → создание User → импорт → counts/checksums/UUID/fields/Favorites/FK/file reconciliation → переключение runtime при закрытых writes → smoke/acceptance → открытие writes. Import manifest и stable import key обеспечивают безопасный повтор; другой snapshot/конфликт останавливает импорт, blind upsert запрещён. Не исправлять production rows вручную и не терять unresolved holds.
 
-Recovery: Email → одноразовый код → проверка → новый пароль → повтор нового пароля. Для verification/recovery определить TTL, one-time codes, rate limits, brute-force protection, безопасное хранение и session invalidation policy. Email provider не выбран; отдельно исследовать transactional email providers перед реализацией.
+Covers остаются на VPS filesystem; binary в PostgreSQL не хранить. Сохранить существующие UUID paths с DB ownership mapping. Private/public media authorization обязательна для GET/HEAD; знание cover UUID не даёт доступа. Подготовка файлов, ссылки и cleanup учитывают отсутствие общей транзакции DB/filesystem; durable deletion jobs, защита от гонок, orphan cleanup и quotas обязательны.
 
-### 4D — Личный кабинет
+PostgreSQL на существующем VPS, без Docker/ORM/PgBouncer, если capacity preflight не выявит препятствий. Базовый план — PostgreSQL 16 из Ubuntu packages, актуальный security minor; local-only доступ (предпочтительно Unix socket), отдельные runtime/migration/backup permissions, секреты вне Git, небольшой connection pool, timeouts, systemd integration, monitoring диска/памяти/connections/WAL/autovacuum. Установка и cutover требуют отдельного production шага.
 
-Просмотр login; изменение ФИО и согласованных необязательных данных; смена пароля с двукратным вводом нового; изменение email только с подтверждением нового email; privacy settings; удаление аккаунта. Удаление учитывает user, Collection, Wish-list, Favorites, Covers/files, sessions и связанные данные. Lifecycle удаления и возможность восстановления определить до реализации.
+До migration обязательны offsite backup, restore procedure и успешный restore rehearsal. **Конкретное offsite storage не выбрано; выбрать до production migration 4B.** Retention, RPO/RTO и capacity подтвердить до cutover; исходное предложение — daily backup, 7 daily + 4 weekly, RPO до 24 часов, RTO проверить rehearsal. Backup БД и файлов должен быть согласованным; отдельно контролировать успешность и возраст копий.
 
-### 4E — Публичные коллекции пользователей
+Tests: повтор/прерывание импорта, changed manifest, missing covers, точное сравнение данных, A/B/Guest UUID attacks, UI regression, restore. Rollback разделён: до новых PostgreSQL writes можно вернуть прежний runtime и неизменённые Sheets; после них Sheets устарели. После открытия writes — совместимый PostgreSQL code rollback или forward fix; data/schema rollback и обратный экспорт являются отдельной процедурой, без обещания безопасного автоматического downgrade.
 
-Основные guest/read-only адреса: `/{login}` и `/{login}/wishlist`, например `vinyl-collection.ru/oleg` и `vinyl-collection.ru/oleg/wishlist`. Единица презентации — коллекция пользователя; отдельные публичные URL пластинок не создавать. Управляющий интерфейс authenticated user: `/collection`, `/wishlist`, `/account` либо отдельно согласованная эквивалентная структура.
+### 4C — Registration / Auth / Recovery
 
-Независимые настройки Public Collection и Public Wish-list (Да/Нет). Предпочтительный default новых пользователей — private, если позже не согласовано другое. Private данные недоступны guest, не индексируются и не входят в sitemap. Существующая production Collection при миграции получает явно согласованное public состояние.
+Зависит от 4B. ФИО необязательно; Email и Login обязательны и уникальны. Регистрация: **ФИО + Email + Login → email code → проверка → Password + repeat → активный account**. Основной вход — **Login + Password**. Recovery: Email → одноразовый код → проверка → новый пароль дважды → отзыв всех sessions → повторный вход.
 
-### 4F — SEO публичных коллекций
+Login: 3–30 ASCII символов, первая буква, далее `a-z`, `0-9`, `_`, `-`; trim/lowercase, case-insensitive unique. Reserved names покрывают реальные и планируемые routes (`collection`, `wishlist`, `api`, `assets`, `src`, `media`, `prototype`, `u`, `account`, `login`, `logout`, `register`, `verify`, `reset`, `forgot-password`, `admin`, `support`, `system`). Email: единая normalization policy для signup/recovery, trim, нормализованный domain, case-insensitive identity; не удалять точки/plus tags по правилам отдельных providers. Login и Email immutable в первой версии Stage 4.
 
-SEO на уровне пользовательских коллекций, без album pages только ради SEO. Предусмотреть server-visible/indexable public content, robots.txt, dynamic sitemap.xml только для разрешённых public user pages, canonical, unique title, meta description, Open Graph, favicon, semantic markup/headings, alt для Covers. Исключить private collections, auth/account/API/technical routes; корректные 404/private responses; проверить JavaScript rendering/indexability.
+Современный password hash; переиспользовать versioned scrypt с обоснованными параметрами и ограничением concurrency. Сохранить Secure/HttpOnly/SameSite cookies, CSRF, Host/Origin и trusted-proxy protections; sessions привязаны к User и хранятся в PostgreSQL, поддерживают expiry/revocation. Verification/reset: bounded TTL/attempts/resend, purpose separation, безопасное hashing/HMAC codes, short-lived grants, atomic single-use и cleanup. Plaintext passwords/codes/tokens не хранить в БД/логах.
 
-После production: Google Search Console, Яндекс Вебмастер, sitemap submission и фактическая проверка индексации.
+Rate limiting по IP и уместным account/login/email/challenge dimensions; auth/email limits переживают restart. Enumeration resistance, email bombing/reset abuse/brute force/credential stuffing/username squatting и bounded hashing/email queues входят в MVP. Маленький global limit не должен быть основным ограничением всех пользователей; общие resource/provider ceilings остаются последним предохранителем. CAPTCHA автоматически не добавлять.
+
+**Email provider НЕ выбран.** Решение принимается непосредственно перед 4C; Postbox/Resend/Postmark — кандидаты, ни один не считается утверждённым. До подключения проверить условия/квоты/доставку, DNS authentication и bounce/complaint handling.
+
+Tests: registration/login/logout, normalization/uniqueness races, expiry/replay/resend, enumeration/limits, sessions после restart, reset/revocation. Deploy допускается с registration disabled; rollback отключает новые регистрации, но сохраняет accounts/data и совместимость auth schema.
+
+### 4D — Profile и account lifecycle
+
+Зависит от 4C. `/account`: просмотр Login/Email, изменение необязательного ФИО, change password с current password и двукратным новым, invalidation других sessions и rotation текущей. **Email/Login change не входит в первую версию Stage 4.**
+
+Два независимых переключателя Public Collection / Public Wish-list. **Для новых аккаунтов оба private по умолчанию.** Email/ФИО не публикуются автоматически. Первый мигрированный пользователь сохраняет оба раздела public.
+
+Account deletion: **hard delete без восстановления; удалённый login не переиспользуется**. Явное подтверждение и повторный пароль. Немедленный revoke sessions и публичного доступа; удаление Collection/Wish-list/Favorites/auth artifacts, durable очередь физического удаления Covers с retry/orphan cleanup. Минимальный login tombstone без профиля/коллекции исключает повторное использование. Backup retention ограничивает срок существования архивных копий; restore должен повторно применить журнал удалений до открытия сервиса. Bug Reports остаются отдельными анонимными сообщениями без автоматической привязки account.
+
+Tests: profile/privacy, reauthentication, password/session lifecycle, deletion/cleanup races и restart, запрет восстановления удалённых аккаунтов через обычный restore. Deploy возможен для первого пользователя при закрытой регистрации; code rollback не восстанавливает удалённые данные.
+
+### 4E — Public pages и SSR
+
+Зависит от 4B–4D. Канонические public URLs: **`/u/{login}/collection`**, **`/u/{login}/wishlist`**; **`/u/{login}` → Collection**. Management URLs: `/collection`, `/wishlist`, `/account`. Старые ссылки должны иметь контролируемую совместимость без выдачи чужих private данных; session-dependent redirects не кешируются как постоянные.
+
+Public API — отдельный allowlist-контракт, независимый от наличия visitor session. На своей странице authenticated owner получает management controls через private API; пользователь A на странице B остаётся public visitor. Сохранить текущие девять public metadata fields (включая note), cover presentation и favorite только Collection; не публиковать record UUID, purchase fields, storeUrl, Email/ФИО. Private разделы/media не выдаются гостю.
+
+**Public Collection индексируется и сразу содержит каталог в initial server-rendered HTML.** Небольшой renderer в существующем Node stack, без большого frontend framework migration. Существующие table/mobile UI, search/sort, scrollbar, Covers, Favorite, Transfer, Streaming, Quote, CSV и Bug Report — regression contract; общего redesign нет. Обоснованное изменение — каталог при открытии public Collection; management pages сохраняют прежнюю отложенную загрузку. SSR использует только public projection и escaping.
+
+Public Wish-list доступен по разрешению владельца, но **noindex и вне sitemap в первой версии**. Отдельные страницы пластинок не создаются. Daily Quote остаётся curated, без AI и анализа коллекции пользователя; Streaming остаётся общей read-only функцией с automatic RU → US, ambiguity handling, player lifecycle/cache/limits и прежним UX. CSV использует только доступную проекцию.
+
+Tests: A/B/Guest, четыре сочетания visibility, public/private responses/media, ownership controls, raw HTML без JS, stale requests/logout/смена пользователя, desktop/mobile parity. Public registration открывается только после совместной acceptance auth/recovery, isolation, lifecycle/deletion и privacy; deployment 4C сам по себе её не открывает. Rollback — только к multi-user-safe PostgreSQL release, не к Stage 3 runtime.
+
+### 4F — SEO и release hardening
+
+Зависит от 4E. Unique title/meta description/canonical, Open Graph basics, robots.txt, favicon, semantic headings/content и alt Covers. Dynamic sitemap содержит только разрешённые public Collection активных пользователей; Public Wish-list, private/auth/account/API/technical routes исключены. Корректные 404 для nonexistent/private pages, noindex для служебных страниц/API; robots не заменяет authorization. Проверить server-visible content, escaping и query canonicalization, без отдельных record URLs.
+
+Финальная проверка capacity/abuse limits для public API, Streaming и Bug Reports, backup/restore drill и production checklist. Security и backup не откладываются до 4F: здесь проверяется готовность всего сервиса. SEO rollback независим от сохранения БД/ownership. После production: Google Search Console, Яндекс Вебмастер, sitemap submission и фактическая проверка индексации — внешние post-deploy операции.
+
+### Общая стратегия поставки и проверки Stage 4
+
+Каждый пакет делится на небольшие reviewable PR с dependencies, tests, migration impact, deployment gate и rollback boundary. Существующие **386 tests — regression baseline**, не переписывать массово. Новые integration tests используют реальный изолированный PostgreSQL; матрица Users A/B/Guest × Collection A/B × Wishlist A/B обязательна для private GET, POST, PUT, DELETE, transfer, cover, favorite, conflict responses и CSV. Проверять cross-user UUID attacks, concurrency, migration/recovery, account deletion, public projection/routes и SEO responses.
+
+AI остаётся Stage 5. За пределами Stage 4: отдельные album pages, общий UI redesign, email/login change, object storage migration без необходимости. Принятые решения не означают выполненную реализацию, installation или production migration.
 
 ## Этап 5 — AI-функции, естественный язык и внешнее уточнение
 

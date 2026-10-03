@@ -1,9 +1,9 @@
 # 3E — Streaming по требованию
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Ожидается финальная визуальная production acceptance владельца.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
 
 
-Статус: реализация в `feature/stage-3e`, local acceptance после controlled rollback подтверждена владельцем; [две финальные правки](stage-3e-final-polish.md) приняты владельцем; Git/deployment разрешены 02.10.2026. База — main `fb073dbe219d602890b66ad6253824507eb86a29`, включает runtime 3D `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` и production-отчёт. 3D deployment/backfill выполнены; финальная визуальная production acceptance в предыдущем отчёте остаётся pending. 3E — последний функциональный пакет Stage 3; до local acceptance, разрешённой финализации Git, deployment и production acceptance пакет и этап не считаются завершёнными. Deployment разрешён владельцем 02.10.2026; схема и данные Sheets не меняются.
+Статус: реализовано, опубликовано в runtime `da16da2`, local и финальная production acceptance подтверждены владельцем; Stage 3 закрыт. [Отчёт](stage-3e-production.md). Историческая база разработки — `fb073dbe219d602890b66ad6253824507eb86a29`; схема и данные Sheets при выпуске 3E не менялись.
 
 ## Пользовательский контракт после controlled rollback
 
@@ -51,7 +51,7 @@ CSP дополнена только `frame-src https://embed.music.apple.com`; s
 
 Никаких MusicKit API/JS/developer tokens, собственного audio/previewUrl, audio proxy/cache/download, scraping или внутренних Apple API. Используются публичный Search API и официальный embed, в контексте альбома и с постоянным переходом к Apple. Официальные основания принятого решения: [Search API](https://performance-partners.apple.com/search-api), [Apple marketing tools](https://artists.apple.com/support/1117-apple-music-marketing-tools), [Music Web privacy](https://www.apple.com/legal/privacy/data/en/apple-music-web/), [identity guidelines](https://marketing.services.apple/apple-music-identity-guidelines). Эти источники не дают SLA доступности RU/US или гарантии длительности preview.
 
-Record models, Google Sheets mapping, UUID, revisions, duplicate rules, CSV, CRUD, transfer, public projection, Covers/Favorites, quotes/reports остаются прежними. Streaming service не получает repository/Google clients и не выполняет записи. Зависимости не добавлены/изменены. Google Sheets действуют до будущего 4A; Stage 4/5 сейчас только roadmap.
+Record models, Google Sheets mapping, UUID, revisions, duplicate rules, CSV, CRUD, transfer, public projection, Covers/Favorites, quotes/reports остаются прежними. Streaming service не получает repository/Google clients и не выполняет записи. Зависимости не добавлены/изменены. Google Sheets действуют до production cutover 4B; Stage 4/5 сейчас только roadmap.
 
 ## Проверка
 

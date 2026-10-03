@@ -127,7 +127,7 @@ JSON записи имеет стабильный набор всех ключе
 
 ## Дополнение 3D
 
-Схема 3D развёрнута в production 30.09.2026; новые заголовки и initial cover backfill выполнены по согласованному сценарию. [Отчёт](stage-3d-production.md). Google Sheets остаются действующим хранилищем до будущей migration acceptance 4A. POST/PUT metadata не принимают coverId/favorite и сохраняют их при редактировании; отдельные операции, проверка ссылок и политика файлов — [3D](stage-3d-spec.md). Cover и favorite не участвуют в duplicate rules или базовой сортировке. Cover не участвует в поиске/CSV, favorite — отдельный read-only фильтр, меняющий набор строк CSV без новых колонок.
+Схема 3D развёрнута в production 30.09.2026; новые заголовки и initial cover backfill выполнены по согласованному сценарию. [Отчёт](stage-3d-production.md). Google Sheets остаются действующим хранилищем до будущей migration acceptance 4B. POST/PUT metadata не принимают coverId/favorite и сохраняют их при редактировании; отдельные операции, проверка ссылок и политика файлов — [3D](stage-3d-spec.md). Cover и favorite не участвуют в duplicate rules или базовой сортировке. Cover не участвует в поиске/CSV, favorite — отдельный read-only фильтр, меняющий набор строк CSV без новых колонок.
 
 Публичная проекция 3D расширяет прежние 9 полей только `cover: null | {thumbnailUrl,imageUrl}` и, для Collection, `favorite:boolean`. UUID записи, отдельное поле coverId и прежние приватные поля не раскрываются. Новые версии включают coverId/favorite; старые клиенты должны обновить страницу.
 

@@ -1,6 +1,6 @@
 # 3D — Favorites, Covers, Daily Quote
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B–4F и Stage 5 не начаты.
 
 
 Статус: повторная local acceptance 3D принята владельцем. Финальные правки геометрии ♪ и закрытия detail проверены автоматически. Production deployment и initial cover backfill выполнены 30.09.2026; финальная визуальная production acceptance подтверждена владельцем, Stage 3 закрыт. [Отчёт](stage-3d-production.md). 3B/3C завершены, production Bug Reports подключён и проверен по подтверждению владельца. Streaming не входит в 3D. Владелец разрешил commit/push/PR/merge/deployment и одноразовый initial cover backfill.

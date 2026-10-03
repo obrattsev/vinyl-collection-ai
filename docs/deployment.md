@@ -1,6 +1,6 @@
 # Vinyl Collection AI — production
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B–4F и Stage 5 не начаты.
 
 
 Развёрнуто 24 сентября 2026 на https://vinyl-collection.ru.
@@ -101,6 +101,8 @@ Runtime SHA: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` (PR #21). Схема, st
 
 Владелец принял Streaming и финальные Add Cover/mobile Transfer правки, затем разрешил commit/push/PR/merge/deploy. Подтверждено отсутствие незавершённых owner writes и приостановка изменений на время выпуска. Применяется существующий runbook: архив merged main, закреплённый runtime/npm ci, RELEASE до запуска, атомарная смена current, restart только приложения. Новые зависимости, env, миграции Sheets и изменения nginx/systemd не нужны. Предыдущий release 9e4678f сохраняется для rollback. Production smoke — read-only, включая on-demand lookup; реальные CRUD/Cover writes не выполняются. Выпуск выполнен; финальная визуальная production acceptance подтверждена владельцем, Stage 3 закрыт. [Отчёт](stage-3e-production.md).
 
-## Согласованный Stage 4 — ещё не реализован
+## Stage 4 — 4A local foundation, без production deployment
+
+4A реализован и принят владельцем по local acceptance; [local PostgreSQL setup](stage-4a-postgresql.md). Это не production release: PG production guard включён, VPS/env/Sheets/Covers не изменены. 4B–4F не начаты.
 
 Текущий runtime остаётся Stage 3 (`da16da2`), storage — Sheets + filesystem Covers. PostgreSQL foundation — 4A; capacity preflight, установка и owner migration/production cutover — 4B, отдельная операция. После принятого cutover PostgreSQL станет единственным runtime storage Collection/Wish-list; исходные Sheets останутся архивом, Bug Reports — отдельным Sheets storage. Обязательны согласованный DB/Covers backup, offsite копия, restore rehearsal и разграничение code/data rollback. Offsite storage выбирается до migration 4B; email provider — непосредственно перед 4C. План эксплуатации и rollback boundaries — в [backlog](backlog.md#этап-4--postgresql-и-многопользовательский-режим); это не инструкция выполнять production изменения сейчас.

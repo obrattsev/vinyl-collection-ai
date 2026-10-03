@@ -1,9 +1,9 @@
 # Backlog Vinyl Collection AI
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. Реализация Stage 4/5 не начата.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B–4F и Stage 5 не начаты.
 
 
-Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, реализация этапов 4–5 не начата. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
+Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
 
 ## Этап 1 — Полный локальный MVP без AI на реальных Google Sheets
 
@@ -106,11 +106,13 @@ Collection: «Показать всю коллекцию». Wish-list: «Пок�
 
 ## Этап 4 — PostgreSQL и многопользовательский режим
 
-**Статус: архитектура и декомпозиция СОГЛАСОВАНЫ; реализация НЕ НАЧАТА.** Фиксация документации не разрешает реализацию 4A или production operations. Реализация 4A начинается отдельной командой владельца. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
+**Статус: 4A реализован и принят владельцем по local visual acceptance.** Реализация в `feature/stage-4a-postgresql`; владелец разрешил commit/push/PR/merge без deployment. 4B–4F не начаты, production остаётся на Sheets. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
 
 User и ownership закладываются до миграции. До успешного cutover 4B действуют текущие Sheets contracts; после него PostgreSQL — единственный runtime source of truth Collection/Wish-list. Старые Sheets сохраняются как migration archive, без runtime reads/writes и без dual-write. Bug Reports остаётся отдельной системой на Google Sheets.
 
 ### 4A — Data foundation
+
+Текущий результат: одна SQL migration, owner-scoped PostgreSQL repositories/services, atomic revisions/Transfer, fixture importer с dry-run/manifest protection, local-only backend и real PostgreSQL tests. [Schema, local setup и acceptance](stage-4a-postgresql.md). Принятый Stage 3 UI сохранён. Local acceptance выполнена успешно; функциональный scope 4A принят и закрыт. User-local PostgreSQL 16 используется только для fixtures; production installation/cutover не выполнялись.
 
 Relational schema, versioned SQL migrations с checksum/lock, PostgreSQL repository/data layer и транзакционные services. Без ORM; простой Node stack с `pg`. С самого начала: User, CollectionRecord, WishlistRecord, Covers/references, ownership/FK; Favorite сохраняет семантику boolean собственной CollectionRecord, а не избранного чужих записей. Предусмотреть auth artifacts/sessions по мере реализации 4C.
 

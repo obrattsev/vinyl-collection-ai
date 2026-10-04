@@ -1,6 +1,6 @@
 # Stage 4A — PostgreSQL Data Foundation
 
-Статус: 4A реализован, local visual acceptance успешно выполнена и принята владельцем. Функциональный scope закрыт; commit/push/PR/merge разрешены без production deployment. Production остаётся на Sheets; Stage 4B не начат.
+Статус: 4A реализован, local visual acceptance успешно выполнена и принята владельцем. Функциональный scope закрыт; commit/push/PR/merge разрешены без production deployment. На момент закрытия 4A production оставался на Sheets. Последующий cutover 4B выполнен 04.10.2026; [актуальный отчёт](stage-4b-production.md).
 
 ## Границы и схема
 
@@ -110,8 +110,8 @@ HTTP smoke: Collection/Wishlist pages и API — 200. Обычный `server/ind
 /Users/obrattsev/vinyl-collection-config/stage4a-local/runtime/bin/pg_ctl -D /Users/obrattsev/vinyl-collection-config/stage4a-local/data -l /Users/obrattsev/vinyl-collection-config/stage4a-local/postgres.log start
 ```
 
-Ручная остановка cluster после остановки приложения: тот же `pg_ctl -D .../data stop -m fast`. System service/autostart не создавались. Stage 3 закрыт; 4A принят по local acceptance; 4B–4F и Stage 5 не начаты.
+Ручная остановка cluster после остановки приложения: тот же `pg_ctl -D .../data stop -m fast`. System service/autostart не создавались. На момент приёмки 4A Stage 3 был закрыт, 4B–4F и Stage 5 не начинались.
 
 ## Последующее развитие 4B
 
-Исторические ограничения 4A выше описывают принятую версию этапа. В локальной 4B реализации подготовлены explicit production config, media boundary и owner mirror; production ещё не переключён. [Текущий contract](stage-4b-local.md).
+Исторические ограничения 4A выше описывают принятую версию этапа. В 4B реализованы explicit production config, media boundary и owner mirror; production переключён на PostgreSQL 04.10.2026. [Текущий contract](stage-4b-local.md).

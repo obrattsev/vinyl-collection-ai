@@ -1,6 +1,6 @@
 # Общие правила данных
 
-Дополнение 4A: параллельный PostgreSQL data layer реализован для local tests/acceptance, не включён в production. Точные поля моделей и business rules ниже сохраняются; storage mapping, ownership/FK, revisions, ordering и import contract — в [Stage 4A](stage-4a-postgresql.md). Production Sheets остаются source of truth до 4B.
+Дополнение 4A/4B: PostgreSQL data layer принят локально и включён в production 04.10.2026. Точные поля моделей и business rules ниже сохраняются; storage mapping, ownership/FK, revisions, ordering и import contract — в [Stage 4A](stage-4a-postgresql.md). PostgreSQL — единственный runtime source of truth; owner Sheets — one-way mirror.
 
 Статус: действующие правила завершённого локального MVP этапа 1; условная legacy-миграция и будущие возможности отмечены отдельно. Связанные документы: [README](../README.md), [backlog](backlog.md).
 
@@ -129,7 +129,7 @@ JSON записи имеет стабильный набор всех ключе
 
 ## Дополнение 3D
 
-Схема 3D развёрнута в production 30.09.2026; новые заголовки и initial cover backfill выполнены по согласованному сценарию. [Отчёт](stage-3d-production.md). Google Sheets остаются действующим хранилищем до будущей migration acceptance 4B. POST/PUT metadata не принимают coverId/favorite и сохраняют их при редактировании; отдельные операции, проверка ссылок и политика файлов — [3D](stage-3d-spec.md). Cover и favorite не участвуют в duplicate rules или базовой сортировке. Cover не участвует в поиске/CSV, favorite — отдельный read-only фильтр, меняющий набор строк CSV без новых колонок.
+Схема 3D развёрнута в production 30.09.2026; новые заголовки и initial cover backfill выполнены по согласованному сценарию. [Отчёт](stage-3d-production.md). После 4B runtime использует PostgreSQL, Sheets служат односторонним зеркалом. POST/PUT metadata не принимают coverId/favorite и сохраняют их при редактировании; отдельные операции, проверка ссылок и политика файлов — [3D](stage-3d-spec.md). Cover и favorite не участвуют в duplicate rules или базовой сортировке. Cover не участвует в поиске/CSV, favorite — отдельный read-only фильтр, меняющий набор строк CSV без новых колонок.
 
 Публичная проекция 3D расширяет прежние 9 полей только `cover: null | {thumbnailUrl,imageUrl}` и, для Collection, `favorite:boolean`. UUID записи, отдельное поле coverId и прежние приватные поля не раскрываются. Новые версии включают coverId/favorite; старые клиенты должны обновить страницу.
 
@@ -137,6 +137,6 @@ JSON записи имеет стабильный набор всех ключе
 
 Streaming — динамический read-only lookup публичных Artist/Album/Album Year и storefront. Apple ID/URL, выбор кандидата и media не входят в record models, Sheets mapping, duplicate rules, revisions или CSV. [Контракт](stage-3e-spec.md).
 
-## Stage 4B local boundary
+## Stage 4B production boundary
 
-Согласованное изменение: после отдельного cutover PostgreSQL — единственный source of truth; существующие owner Sheets — одностороннее зеркало PG→Sheets. Dirty generation коммитится с mutation, Google sync асинхронный и не меняет CRUD result. Private media проверяется через DB ownership/reference. [Точный contract](stage-4b-local.md). Production пока остаётся на Sheets.
+Согласованное изменение: после отдельного cutover PostgreSQL — единственный source of truth; существующие owner Sheets — одностороннее зеркало PG→Sheets. Dirty generation коммитится с mutation, Google sync асинхронный и не меняет CRUD result. Private media проверяется через DB ownership/reference. [Точный contract](stage-4b-local.md). Production cutover выполнен; [verification](stage-4b-production.md).

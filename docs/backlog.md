@@ -1,9 +1,9 @@
 # Backlog Vinyl Collection AI
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты.
 
 
-Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
+Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
 
 ## Этап 1 — Полный локальный MVP без AI на реальных Google Sheets
 
@@ -108,6 +108,18 @@ Collection: «Показать всю коллекцию». Wish-list: «Пок�
 
 **Статус: 4A реализован и принят владельцем по local visual acceptance.** Реализация в `feature/stage-4a-postgresql`; владелец разрешил commit/push/PR/merge без deployment. 4B production cutover выполнен; production использует PostgreSQL, 4C–4F не начаты. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
 
+Согласованный порядок Stage 4:
+
+1. **4A — PostgreSQL foundation — DONE.**
+2. **4B — Production migration/cutover — DONE**, принят владельцем.
+3. **4C — Registration/Auth/Recovery.**
+4. **4D — Account/settings/account lifecycle.**
+5. **4D UX/Data polish** — отдельный пакет после основной реализации личного кабинета 4D.
+6. **4E — Public /u/{login} collections.**
+7. **4F — SEO и release hardening.**
+
+Stage 5 AI начинается только после полного Stage 4. Новый пакет согласован как backlog; это не разрешение начинать 4C или реализацию polish.
+
 User и ownership закладываются до миграции. До успешного cutover 4B действуют текущие Sheets contracts; после него PostgreSQL — единственный runtime source of truth Collection/Wish-list. Существующие owner Sheets становятся односторонним PG→Sheets mirror; PostgreSQL остаётся единственным source of truth, без dual-write transaction. Bug Reports остаётся отдельной системой на Google Sheets.
 
 ### 4A — Data foundation
@@ -150,7 +162,7 @@ Rate limiting по IP и уместным account/login/email/challenge dimensio
 
 Tests: registration/login/logout, normalization/uniqueness races, expiry/replay/resend, enumeration/limits, sessions после restart, reset/revocation. Deploy допускается с registration disabled; rollback отключает новые регистрации, но сохраняет accounts/data и совместимость auth schema.
 
-### 4D — Profile и account lifecycle
+### 4D — Account/settings/account lifecycle
 
 Зависит от 4C. `/account`: просмотр Login/Email, изменение необязательного ФИО, change password с current password и двукратным новым, invalidation других sessions и rotation текущей. **Email/Login change не входит в первую версию Stage 4.**
 
@@ -160,11 +172,59 @@ Account deletion: **hard delete без восстановления; удалё�
 
 Tests: profile/privacy, reauthentication, password/session lifecycle, deletion/cleanup races и restart, запрет восстановления удалённых аккаунтов через обычный restore. Deploy возможен для первого пользователя при закрытой регистрации; code rollback не восстанавливает удалённые данные.
 
+### 4D UX/Data polish — отдельный пакет после личного кабинета
+
+**Статус: согласован, не начат.** Выполняется после основной реализации 4D Account/settings/account lifecycle и до 4E Public Collections. Только точечные изменения принятого Stage 3 UI, без redesign и AI.
+
+#### 1. Цена продажи и user-level visibility
+
+Добавить только в Collection необязательное nullable поле **«Цена продажи (руб.)»**; в Wish-list его нет. Формат и validation аналогичны существующей цене покупки; отдельный helper не нужен. В desktop Owner расположить рядом с ценой покупки, в mobile detail — среди соответствующих полей записи. Включить в owner CSV.
+
+В личном кабинете добавить user-level настройку **«Показывать цену продажи»**, default **false**; это не свойство пластинки. При false поле полностью отсутствует в Guest projection/API. При true оно доступно Guest и отображается в публичной Collection desktop/mobile. Visibility обеспечивается server-side projection, не CSS. Изменение настройки не изменяет сами Collection records. Цель — возможность использовать публичную коллекцию как простой прайс-лист пластинок на продажу наряду с демонстрацией друзьям.
+
+#### 2. Обложка в Add flow
+
+Для Add Collection/Wish-list убрать отдельный текст **«Обложка (необязательно)»**, кнопку выбора файла назвать **«Добавить обложку»**. В confirmation screen перед созданием записи не показывать действие удаления выбранной обложки: текущая неактивная кнопка **«Убрать файл»** должна отсутствовать.
+
+Отдельный Cover flow существующей записи сохранить. Действие удаления назвать **«Удалить обложку»** и показывать только там, где обложка уже существует и её действительно можно удалить. Desktop/mobile semantics одинаковы; Add confirmation и управление существующей Cover не смешивать.
+
+#### 3. Поясняющий текст фильтров
+
+На mobile убрать **«Найдите нужные пластинки...»**. Если достаточно обычного responsive CSS, desktop оставить без изменений. Удаление текста на всех размерах допустимо только если раздельное поведение существенно усложнило бы компонент; отдельную сложную UI-логику не вводить.
+
+#### 4. Data-driven порядок жанров в Add/Edit
+
+Ранжировать допустимые жанры по реальному использованию конкретным User, считая частоту совместно по **Collection + Wish-list**. Использованные жанры идут первыми: более частые выше, при равной частоте — стабильная алфавитная сортировка. Затем идут остальные допустимые жанры. Это обычная data-driven сортировка, не AI functionality.
+
+#### 5. Контекстный Genre filter
+
+В фильтре Collection показывать только жанры, реально присутствующие в Collection User; в фильтре Wish-list — только присутствующие в его Wish-list. Отсутствующие жанры и empty/null значения не включать. В отличие от Add/Edit ranking, здесь Collection и Wish-list **не объединяются**.
+
+#### 6. Add/Edit CTA
+
+В Add переименовать **«Проверить и просмотреть» → «Добавить»**, в Edit соответствующую кнопку назвать **«Изменить»**. Обе кнопки по-прежнему сначала открывают confirmation screen: Add не создаёт запись немедленно, Edit не сохраняет изменения немедленно. Это требование относится к Add/Edit, а не к похожим действиям других flows.
+
+#### 7. Цена покупки
+
+Убрать helper **«0 — бесплатно»**. Формат и validation существующей цены покупки не менять.
+
+#### 8. Placeholders Add/Edit
+
+Привести формулировки к стилю уже используемых фильтров: Год альбома — **«Например, 1979»**; Год пластинки — **«Например, 1979»**; Дата покупки — **«Например, 20.09.2026»**. Validation semantics не менять.
+
+#### 9. Favorites filter reset
+
+Снятие checkbox **«Только избранное»** должно выполнять тот же reset filter/search state, что кнопка **«Очистить»**, вместо сохранения остальных фильтров. Очистить остальные активные filters/search, снять Favorite filter и показать исходную Collection. Поведение должно соответствовать «Очистить».
+
+#### 10. UX safety rule — не угадывать компонент
+
+При реализации **ОСТАНОВИТЬСЯ и запросить уточнение у владельца**, если по существующему коду/UX нельзя однозначно определить окно, dialog, confirmation screen, Cover component, кнопку, desktop/mobile variant или состояние Add/Edit. При необходимости попросить screenshot с выделенным элементом. Не изменять «похожий» компонент по предположению. Цель — минимальные точечные изменения существующего принятого UI, без redesign.
+
 ### 4E — Public pages и SSR
 
-Зависит от 4B–4D. Канонические public URLs: **`/u/{login}/collection`**, **`/u/{login}/wishlist`**; **`/u/{login}` → Collection**. Management URLs: `/collection`, `/wishlist`, `/account`. Старые ссылки должны иметь контролируемую совместимость без выдачи чужих private данных; session-dependent redirects не кешируются как постоянные.
+Зависит от 4B–4D, включая завершение отдельного 4D UX/Data polish. Канонические public URLs: **`/u/{login}/collection`**, **`/u/{login}/wishlist`**; **`/u/{login}` → Collection**. Management URLs: `/collection`, `/wishlist`, `/account`. Старые ссылки должны иметь контролируемую совместимость без выдачи чужих private данных; session-dependent redirects не кешируются как постоянные.
 
-Public API — отдельный allowlist-контракт, независимый от наличия visitor session. На своей странице authenticated owner получает management controls через private API; пользователь A на странице B остаётся public visitor. Сохранить текущие девять public metadata fields (включая note), cover presentation и favorite только Collection; не публиковать record UUID, purchase fields, storeUrl, Email/ФИО. Private разделы/media не выдаются гостю.
+Public API — отдельный allowlist-контракт, независимый от наличия visitor session. На своей странице authenticated owner получает management controls через private API; пользователь A на странице B остаётся public visitor. Сохранить текущие девять public metadata fields (включая note), cover presentation и favorite только Collection; не публиковать record UUID, purchase fields, storeUrl, Email/ФИО. Private разделы/media не выдаются гостю. Цена продажи Collection добавляется в public allowlist только при user-level «Показывать цену продажи» = true; при false поле отсутствует в API и SSR projection, согласно 4D UX/Data polish.
 
 **Public Collection индексируется и сразу содержит каталог в initial server-rendered HTML.** Небольшой renderer в существующем Node stack, без большого frontend framework migration. Существующие table/mobile UI, search/sort, scrollbar, Covers, Favorite, Transfer, Streaming, Quote, CSV и Bug Report — regression contract; общего redesign нет. Обоснованное изменение — каталог при открытии public Collection; management pages сохраняют прежнюю отложенную загрузку. SSR использует только public projection и escaping.
 

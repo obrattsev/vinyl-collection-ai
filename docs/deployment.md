@@ -1,6 +1,6 @@
 # Vinyl Collection AI — production
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B принят по local acceptance; production phase разрешена, cutover не выполнен; 4C–4F и Stage 5 не начаты.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты.
 
 
 Развёрнуто 24 сентября 2026 на https://vinyl-collection.ru.
@@ -103,12 +103,14 @@ Runtime SHA: `9e4678f6aa8af38b26d1fc9d3d3de0638cf76d63` (PR #21). Схема, st
 
 ## Stage 4 — 4A local foundation, без production deployment
 
-4A реализован и принят владельцем по local acceptance; [local PostgreSQL setup](stage-4a-postgresql.md). Это не production release: PG production guard включён, VPS/env/Sheets/Covers не изменены. 4B реализуется локально; 4C–4F не начаты.
+4A реализован и принят владельцем по local acceptance; [local PostgreSQL setup](stage-4a-postgresql.md). Исторически 4A не включал production deployment; guard осознанно изменён при 4B. 4B production cutover выполнен; 4C–4F не начаты.
 
-Текущий runtime остаётся Stage 3 (`da16da2`), storage — Sheets + filesystem Covers. PostgreSQL foundation — 4A; capacity preflight, установка и owner migration/production cutover — 4B, отдельная операция. После принятого cutover PostgreSQL станет единственным runtime storage Collection/Wish-list; исходные owner Sheets станут односторонним PG→Sheets mirror, Bug Reports — отдельным Sheets storage. Обязательны согласованный DB/Covers backup, offsite копия, restore rehearsal и разграничение code/data rollback. Offsite storage выбирается до migration 4B; email provider — непосредственно перед 4C. План эксплуатации и rollback boundaries — в [backlog](backlog.md#этап-4--postgresql-и-многопользовательский-режим); это не инструкция выполнять production изменения сейчас.
+Текущий runtime — `2ccb47b50cb3903d1542a273a84d963d4d98cc36` (PR #26), PostgreSQL 16.15 + filesystem Covers. Collection/Wish-list читаются и изменяются только в PG; owner Sheets — one-way mirror, Bug Reports — отдельный Sheet. Timeweb daily backup принят владельцем; logical backup, restore rehearsal и rollback gates выполнены. Email provider выбирается непосредственно перед 4C. Эксплуатационные пути и checks — в production report 4B.
 
-Stage 4B local phase: [implementation/acceptance](stage-4b-local.md), [gated production runbook](stage-4b-cutover.md). Production всё ещё Sheets; локальная реализация не разрешает deployment.
+Stage 4B local phase: [implementation/acceptance](stage-4b-local.md), [gated production runbook](stage-4b-cutover.md). Production переведён на PostgreSQL 04.10.2026; owner Sheets — односторонний mirror.
 
 ## Production authorization — 04.10.2026
 
-Local acceptance 4B успешно принята владельцем. Git finalization и production phase разрешены с последовательными verification gates; cutover ещё не выполнен. Backup decision: Timeweb daily VPS disk backup + проверенные logical PG/Covers backups на VPS (7 daily + 4 weekly) + one-way owner Sheets mirror. S3/SFTP и новые providers/dependencies не добавлять. Timeweb daily VPS backup подтверждён владельцем; timestamp последнего provider backup средствами deployment environment не подтверждён. Более ранние требования отдельного offsite provider и ожидания local acceptance выше заменены этим решением. Freeze только непосредственно перед cutover, снять после verification.
+Local acceptance 4B успешно принята владельцем. Git finalization и production phase разрешены с последовательными verification gates; cutover выполнен 04.10.2026; verification и cleanup пройдены, freeze снят. Backup decision: Timeweb daily VPS disk backup + проверенные logical PG/Covers backups на VPS (7 daily + 4 weekly) + one-way owner Sheets mirror. S3/SFTP и новые providers/dependencies не добавлять. Timeweb daily VPS backup подтверждён владельцем; timestamp последнего provider backup средствами deployment environment не подтверждён. Более ранние требования отдельного offsite provider и ожидания local acceptance выше заменены этим решением. Freeze только непосредственно перед cutover, снять после verification.
+
+Фактический release, verification, backup/monitoring и ограничения: [production report 4B](stage-4b-production.md).

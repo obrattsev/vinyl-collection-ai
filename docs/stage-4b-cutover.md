@@ -1,6 +1,6 @@
-# Stage 4B production runbook — NOT EXECUTED
+# Stage 4B production runbook
 
-Local acceptance and production phase are approved by the owner. Timeweb daily disk backup is the accepted infrastructure/offsite layer; no new provider is required. Disposable production smoke records are approved. Do not execute this document as one shell script. Stop on any failed check. See [local architecture](stage-4b-local.md).
+Local acceptance and production phase were approved; execution completed 04.10.2026 (see production report). This remains a gated reference, not a script to rerun against the migrated database. Timeweb daily disk backup is the accepted infrastructure/offsite layer; no new provider is required. Disposable production smoke records are approved. Do not execute this document as one shell script. Stop on any failed check. See [local architecture](stage-4b-local.md).
 
 ## Gate 0: evidence and preparation
 
@@ -149,4 +149,6 @@ Require verified=true under stable freeze. Only then operator may restore Stage 
 
 ## Production authorization — 04.10.2026
 
-Local acceptance 4B успешно принята владельцем. Git finalization и production phase разрешены с последовательными verification gates; cutover ещё не выполнен. Backup decision: Timeweb daily VPS disk backup + проверенные logical PG/Covers backups на VPS (7 daily + 4 weekly) + one-way owner Sheets mirror. S3/SFTP и новые providers/dependencies не добавлять. Timeweb daily VPS backup подтверждён владельцем; timestamp последнего provider backup средствами deployment environment не подтверждён. Более ранние требования отдельного offsite provider и ожидания local acceptance выше заменены этим решением. Freeze только непосредственно перед cutover, снять после verification.
+Local acceptance 4B успешно принята владельцем. Git finalization и production phase разрешены с последовательными verification gates; cutover выполнен 04.10.2026; verification и cleanup пройдены, freeze снят. Backup decision: Timeweb daily VPS disk backup + проверенные logical PG/Covers backups на VPS (7 daily + 4 weekly) + one-way owner Sheets mirror. S3/SFTP и новые providers/dependencies не добавлять. Timeweb daily VPS backup подтверждён владельцем; timestamp последнего provider backup средствами deployment environment не подтверждён. Более ранние требования отдельного offsite provider и ожидания local acceptance выше заменены этим решением. Freeze только непосредственно перед cutover, снять после verification.
+
+Фактический release, verification, backup/monitoring и ограничения: [production report 4B](stage-4b-production.md).

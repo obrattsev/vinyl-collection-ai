@@ -24,6 +24,11 @@ import { publicRecords } from '../../src/public-record.mjs';
 import { createApp } from '../../server/app.mjs';
 import { testAuth, loginOwner } from '../fixtures/auth.mjs';
 import { createCoverStorage } from '../../server/cover-storage.mjs';
+import { ownerBoundary,freeze } from '../../server/postgres/boundary.mjs';
+import { enableMirror,reconcile,mirrorStatus } from '../../server/postgres/mirror.mjs';
+import { mirrorConfiguration,sheetsMirror } from '../../server/mirror-sheets.mjs';
+import { verifyImport,rollbackGate } from '../../server/postgres/verification.mjs';
+import { createBackup } from '../../server/postgres/backup.mjs';
 const pool = createPool(process.env.DATABASE_URL);
 const draft = ({id,coverId,favorite,...rest}) => rest;
 const fail = (code,status) => error => error.message === code && (!status || error.status === status);
@@ -58,7 +63,7 @@ test('safety refuses missing/wrong token and acceptance DB before mutation', asy
 });
 test('migrations repeat concurrently without duplicate application',async()=>{
  await Promise.all([migrate(pool),migrate(pool)]);
- assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'1');
+ assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'2');
 });
 test('migration checksum mismatch and failed DDL never become successful',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'vinyl-migration-test-'));const url=pathToFileURL(dir+'/');
@@ -67,10 +72,11 @@ test('migration checksum mismatch and failed DDL never become successful',async(
   await writeFile(join(dir,'001_data_foundation.sql'),first+'\n-- changed');
   await assert.rejects(migrate(pool,url),/checksum/);
   await writeFile(join(dir,'001_data_foundation.sql'),first);
-  await writeFile(join(dir,'002_failure.sql'),'CREATE TABLE vinyl.must_rollback(id int); SELECT 1/0;');
+  await writeFile(join(dir,'002_cutover_mirror.sql'),await readFile(new URL('002_cutover_mirror.sql',migrationDirectory),'utf8'));
+  await writeFile(join(dir,'003_failure.sql'),'CREATE TABLE vinyl.must_rollback(id int); SELECT 1/0;');
   await assert.rejects(migrate(pool,url));
   assert.equal((await pool.query("SELECT to_regclass('vinyl.must_rollback') AS name")).rows[0].name,null);
-  assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'1');
+  assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'2');
  } finally {await rm(dir,{recursive:true,force:true});}
 });
 test('normalized identity uniqueness is enforced under races; defaults private',async()=>{
@@ -292,4 +298,160 @@ test('import rejects ambiguous representations before touching the database', as
 test('production PG startup is rejected before listening or accessing storage',async()=>{
  const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');
  await assert.rejects(promisify(execFile)(process.execPath,['server/index.mjs'],{cwd:new URL('../../',import.meta.url),env:{NODE_ENV:'production',DATA_BACKEND:'postgres'},timeout:4000}),e=>e.code===1 && !e.stdout.includes('http://'));
+});
+
+function mirrorFixture(){const data={collection:[],wishlist:[]};return {data,read:async s=>structuredClone(data[s]),replace:async(s,r)=>{data[s]=structuredClone(r);}};}
+test('4B explicit production config and mirror config fail closed',()=>{
+ const env={NODE_ENV:'production',DATA_BACKEND:'postgres',PG_PRODUCTION_ACK:'stage4b',DATABASE_URL:'postgresql://vinyl_app:placeholder@127.0.0.1:5432/vinyl_production',PG_OWNER_ID:randomUUID()};
+ assert.equal(backendConfiguration(env).ownerId,env.PG_OWNER_ID);
+ for(const change of [{PG_PRODUCTION_ACK:''},{PG_OWNER_ID:''},{DATABASE_URL:env.DATABASE_URL.replace('127.0.0.1','remote')},{DATABASE_URL:env.DATABASE_URL.replace('vinyl_app','postgres')}])assert.throws(()=>backendConfiguration({...env,...change}));
+ assert.throws(()=>mirrorConfiguration({...env,MIRROR_ENABLED:'true',MIRROR_OWNER_ID:randomUUID()},backendConfiguration(env)));
+ assert.throws(()=>mirrorConfiguration({...env,MIRROR_ENABLED:'true',MIRROR_OWNER_ID:env.PG_OWNER_ID,MIRROR_FAKE_FILE:'/tmp/mirror.json'},backendConfiguration(env)));
+ assert.throws(()=>mirrorConfiguration({...env,MIRROR_ENABLED:'false',MIRROR_OWNER_ID:env.PG_OWNER_ID},backendConfiguration(env)));
+});
+test('4B HTTP media GET/HEAD denies private, foreign and orphan; guest list privacy',async t=>{
+ const a=await user(),b=await user();const dir=await mkdtemp(join(tmpdir(),'vinyl-boundary-'));const storage=createCoverStorage(dir);
+ const image=await sharp({create:{width:16,height:16,channels:3,background:'#ffee00'}}).png().toBuffer();
+ const own=await storage.prepare(image),foreign=await storage.prepare(image),orphan=await storage.prepare(image);
+ await coverRepository(pool,a.id).insert(own);await coverRepository(pool,a.id).insert(orphan);await coverRepository(pool,b.id).insert(foreign);
+ await recordRepository(pool,a.id,'collection').insert({...record,id:randomUUID(),coverId:own});
+ await recordRepository(pool,b.id,'collection').insert({...record,id:randomUUID(),coverId:foreign});
+ const server=createApp(createPostgresServices(pool,a.id,storage),{auth:testAuth()});server.listen(0,'127.0.0.1');await once(server,'listening');
+ t.after(async()=>{await new Promise(r=>{server.close(r);server.closeAllConnections();});await rm(dir,{recursive:true,force:true});});
+ const url=`http://127.0.0.1:${server.address().port}`,headers=await loginOwner(url);
+ assert.equal((await fetch(url+'/api/collection')).status,404);
+ for(const method of ['GET','HEAD']) {
+  assert.equal((await fetch(`${url}/media/covers/${own}/thumb.webp`,{method})).status,404);
+  const allowed=await fetch(`${url}/media/covers/${own}/thumb.webp`,{method,headers});assert.equal(allowed.status,200);assert.equal(allowed.headers.get('cache-control'),'private, no-store');
+  for(const id of [foreign,orphan])assert.equal((await fetch(`${url}/media/covers/${id}/thumb.webp`,{method,headers})).status,404);
+ }
+ await pool.query('UPDATE vinyl.users SET collection_public=true WHERE id=$1',[a.id]);
+ assert.equal((await fetch(`${url}/media/covers/${own}/image.webp`)).status,200);
+ assert.equal((await fetch(url+'/api/collection')).status,200);
+ await assert.rejects(ownerBoundary({query:async()=>{throw Error('offline');}},a.id).authorizeCover(own,null));
+});
+test('4B public wishlist reference authorizes shared cover even if collection private',async()=>{
+ const u=await user({wishlistPublic:true});const cover=randomUUID();await coverRepository(pool,u.id).insert(cover);
+ await recordRepository(pool,u.id,'collection').insert({...record,id:randomUUID(),coverId:cover});
+ await recordRepository(pool,u.id,'wishlist').insert({...wish,id:randomUUID(),coverId:cover});
+ await ownerBoundary(pool,u.id).authorizeCover(cover,null);
+ await pool.query('UPDATE vinyl.users SET wishlist_public=false WHERE id=$1',[u.id]);
+ await assert.rejects(ownerBoundary(pool,u.id).authorizeCover(cover,null),fail('NOT_FOUND'));
+});
+test('4B generation commits with business mutation and rolls back on failure',async()=>{
+ const {u,s}=await context();await enableMirror(pool,u.id);const initial=await mirrorStatus(pool,u.id);
+ await s.createRecord(draft(record));assert.equal((await mirrorStatus(pool,u.id)).generation,String(BigInt(initial.generation)+1n));
+ await assert.rejects(s.createRecord(draft(record)));assert.equal((await mirrorStatus(pool,u.id)).generation,'2');
+ const other=await context();await other.s.createRecord(draft(record));assert.equal((await mirrorStatus(pool,u.id)).generation,'2');
+});
+test('4B Google failure cannot undo successful PG; retry state survives new pool',async()=>{
+ const {u,s}=await context();await enableMirror(pool,u.id);const saved=await s.createRecord(draft(record));
+ const bad={read:async()=>{throw Error('secret remote error');},replace:async()=>{throw Error('secret remote error');}};
+ assert.equal((await reconcile(pool,u.id,bad)).status,'failed');assert.deepEqual(await s.getCollection(),[saved]);
+ const second=createPool(process.env.DATABASE_URL);try{const state=await mirrorStatus(second,u.id);assert.equal(state.last_error,'MIRROR_SYNC_FAILED');assert.ok(new Date(state.next_attempt_at)>new Date());assert.equal((await reconcile(second,u.id,bad)).status,'waiting');}finally{await second.end();}
+ assert.equal((await reconcile(pool,u.id,mirrorFixture(),{force:true})).status,'verified');
+});
+test('4B partial two-sheet failure retains pending; reconciliation repairs manual drift',async()=>{
+ const {u,s}=await context();await enableMirror(pool,u.id);await s.createRecord(draft(record));await s.createWishlistRecord({...wishDraft,artist:'different'});
+ const fixture=mirrorFixture(),replace=fixture.replace;fixture.replace=async(s,r)=>{if(s==='wishlist')throw Error('outage');await replace(s,r);};
+ assert.equal((await reconcile(pool,u.id,fixture)).status,'failed');assert.equal((await mirrorStatus(pool,u.id)).synced_generation,'0');assert.equal(fixture.data.collection.length,1);
+ fixture.replace=replace;await reconcile(pool,u.id,fixture,{force:true});assert.equal((await mirrorStatus(pool,u.id)).status,'synced');
+ fixture.data.collection=[];await reconcile(pool,u.id,fixture,{force:true});assert.equal(fixture.data.collection.length,1);
+ assert.deepEqual(await s.getCollection(),fixture.data.collection);
+});
+test('4B concurrent generation is not marked synced and parallel writer is excluded',async()=>{
+ const {u,s}=await context();await enableMirror(pool,u.id);await s.createRecord(draft(record));const fixture=mirrorFixture(),replace=fixture.replace;let onceOnly=true;
+ fixture.replace=async(section,rows)=>{if(onceOnly){onceOnly=false;assert.equal((await reconcile(pool,u.id,mirrorFixture(),{force:true})).status,'busy');await s.createRecord({...draft(record),artist:'during sync'});}await replace(section,rows);};
+ const first=await reconcile(pool,u.id,fixture);assert.equal(first.status,'verified');assert.equal((await mirrorStatus(pool,u.id)).status,'pending');
+ await reconcile(pool,u.id,fixture);assert.equal((await mirrorStatus(pool,u.id)).status,'synced');assert.equal(fixture.data.collection.length,2);
+});
+test('4B read-back mismatch does not advance synced generation',async()=>{
+ const {u,s}=await context();await enableMirror(pool,u.id);await s.createRecord(draft(record));
+ const result=await reconcile(pool,u.id,{read:async()=>[],replace:async()=>{}});
+ assert.equal(result.error,'MIRROR_VERIFY_FAILED');assert.equal((await mirrorStatus(pool,u.id)).synced_generation,'0');
+});
+test('4B writes after a synced mirror wake hourly schedule',async()=>{
+ const {u,s}=await context();await enableMirror(pool,u.id);const fixture=mirrorFixture();await reconcile(pool,u.id,fixture);
+ assert.equal((await reconcile(pool,u.id,fixture)).status,'waiting');await s.createRecord(draft(record));
+ assert.equal((await reconcile(pool,u.id,fixture)).status,'verified');
+});
+test('4B freeze drains transactions, blocks new mutations, preserves reads',async()=>{
+ const {u,s}=await context();let release;const held=new Promise(r=>release=r);let entered;const ready=new Promise(r=>entered=r);
+ const writer=ownerTransaction(pool,u.id,async()=>{entered();await held;});await ready;
+ let drained=false;const freezing=freeze(pool,true).then(r=>{drained=true;return r;});await new Promise(r=>setTimeout(r,30));assert.equal(drained,false);release();await writer;
+ try{assert.equal((await freezing).drained,true);await assert.rejects(s.createRecord(draft(record)),fail('WRITES_FROZEN',503));assert.deepEqual(await s.getCollection(),[]);}finally{await freeze(pool,false);}
+});
+test('4B imported revisions verify and support subsequent mutations',async()=>{
+ const snap=snapshot();await importSnapshot(pool,snap,{dryRun:false});assert.equal((await verifyImport(pool,snap)).verified,true);
+ const s=createPostgresServices(pool,snap.user.id);const current=(await s.getCollection())[0];
+ const edited=await s.updateRecord(current.id,await recordRevision(snap.collection[0]),{...draft(current),note:'after import'});
+ const fav=await s.changeFavorite(edited.id,await recordRevision(edited),{favorite:true});await s.deleteRecord(fav.id,await recordRevision(fav));
+ assert.equal((await verifyImport(pool,snap)).verified,false);
+});
+test('4B rollback gate refuses unfrozen or stale Sheets',async()=>{
+ const {u,s}=await context();await s.createRecord(draft(record));const fixture=mirrorFixture();
+ await assert.rejects(rollbackGate(pool,u.id,fixture),/Freeze/);await freeze(pool,true);
+ try{assert.equal((await rollbackGate(pool,u.id,fixture)).verified,false);fixture.data.collection=await s.getCollection();assert.equal((await rollbackGate(pool,u.id,fixture)).verified,true);}finally{await freeze(pool,false);}
+});
+test('4B Sheets adapter uses typed values and clears stale tail in one batch',async()=>{
+ const {SHEETS_COLUMNS}=await import('../../server/google-sheets-collection.mjs');const headers=Object.keys(SHEETS_COLUMNS);const calls=[];
+ const auth={getClient:async()=>({request:async options=>{calls.push(options);if(options.method==='POST')return {data:{}};if(options.url.includes('/values/'))return {data:{values:[headers,[],[],[]]}};return {data:{sheets:[{properties:{title:'Data',sheetId:7,gridProperties:{rowCount:20}}}]}};}})};
+ const adapter=sheetsMirror({targets:{collection:{id:'fixture',name:'Data'}}},auth);
+ await adapter.replace('collection',[{...record,artist:'=IMPORTXML("x")',purchasePrice:0,favorite:false}]);
+ const post=calls.find(c=>c.method==='POST');assert.equal(post.data.requests.length,1);const update=post.data.requests[0].updateCells;
+ assert.equal(update.range.endRowIndex,4);assert.equal(update.rows.length,2);assert.deepEqual(update.rows[1].values[1],{userEnteredValue:{stringValue:'=IMPORTXML("x")'}});
+ assert.deepEqual(update.rows[1].values[12],{userEnteredValue:{numberValue:0}});assert.deepEqual(update.rows[1].values[14],{userEnteredValue:{boolValue:false}});
+ assert.equal(update.fields,'userEnteredValue');assert.equal(calls[1].params.valueRenderOption,'UNFORMATTED_VALUE');
+});
+test('4B backup refuses unfrozen database and overwrite',async()=>{
+ const {u}=await context();const dir=await mkdtemp(join(tmpdir(),'vinyl-backup-test-'));
+ try{await assert.rejects(createBackup(pool,{url:process.env.DATABASE_URL,bin:'/unused',directory:join(dir,'backup'),covers:dir,userId:u.id}),/Separate/);
+ await assert.rejects(createBackup(pool,{url:process.env.DATABASE_URL,bin:'/unused',directory:dir,covers:'/tmp/separate-covers',userId:u.id}),/Freeze/);
+ await freeze(pool,true);try{await assert.rejects(createBackup(pool,{url:process.env.DATABASE_URL,bin:'/unused',directory:dir,covers:'/tmp/separate-covers',userId:u.id}),e=>e.code==='EEXIST');}finally{await freeze(pool,false);}
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+test('4B unavailable DB denies HTTP media before touching filesystem',async t=>{
+ let reads=0;const boundary=ownerBoundary({query:async()=>{throw Error('database offline');}},randomUUID());
+ const server=createApp({...boundary,coverStorage:{read:async()=>{reads++;return Buffer.from('private');}}},{auth:testAuth()});server.listen(0,'127.0.0.1');await once(server,'listening');
+ t.after(()=>new Promise(r=>{server.close(r);server.closeAllConnections();}));
+ const response=await fetch(`http://127.0.0.1:${server.address().port}/media/covers/${randomUUID()}/image.webp`);
+ assert.equal(response.status,500);assert.equal(reads,0);assert.ok(!(await response.text()).includes('database offline'));
+});
+test('4B full reconciliation checks clean mirror after periodic deadline',async()=>{
+ const {u,s}=await context();await enableMirror(pool,u.id);await s.createRecord(draft(record));const fixture=mirrorFixture();await reconcile(pool,u.id,fixture);
+ fixture.data.collection=[];await pool.query("UPDATE vinyl.mirror_state SET next_attempt_at=now()-interval '1 second' WHERE user_id=$1",[u.id]);
+ assert.equal((await reconcile(pool,u.id,fixture)).status,'verified');assert.equal(fixture.data.collection.length,1);
+});
+test('4B failed business transaction rolls back both data and dirty generation',async()=>{
+ const {u}=await context();await enableMirror(pool,u.id);
+ await assert.rejects(ownerTransaction(pool,u.id,async c=>{await recordRepository(c,u.id,'collection').insert({...record,id:randomUUID()});throw Error('failure after write');}));
+ assert.equal((await mirrorStatus(pool,u.id)).generation,'1');assert.deepEqual(await recordRepository(pool,u.id,'collection').list(),[]);
+});
+test('4B fresh CLI process observes and reconciles durable pending state without Google',async()=>{
+ const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');const exec=promisify(execFile);
+ const {u,s}=await context();await enableMirror(pool,u.id);await s.createRecord(draft(record));const dir=await mkdtemp(join(tmpdir(),'vinyl-worker-'));const file=join(dir,'mirror.json');await writeFile(file,JSON.stringify({collection:[],wishlist:[]}));
+ const env={PATH:process.env.PATH,NODE_ENV:'test',DATA_BACKEND:'postgres',DATABASE_URL:process.env.DATABASE_URL,PG_OWNER_ID:u.id,MIRROR_ENABLED:'true',MIRROR_OWNER_ID:u.id,MIRROR_FAKE_FILE:file};
+ try{const before=await exec(process.execPath,['scripts/pg-mirror.mjs','status'],{env});assert.equal(JSON.parse(before.stdout).status,'pending');
+ const result=await exec(process.execPath,['scripts/pg-mirror.mjs','reconcile'],{env});assert.equal(JSON.parse(result.stdout).status,'verified');assert.equal(JSON.parse(await readFile(file,'utf8')).collection.length,1);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+test('4B least-privilege runtime grants support owner row lock and mutations without DDL',async()=>{
+ const {u}=await context();await enableMirror(pool,u.id);const client=await pool.connect();const role='vinyl_fixture_'+randomUUID().replaceAll('-','');
+ try {
+  await client.query('BEGIN');await client.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
+  await client.query(`GRANT USAGE ON SCHEMA vinyl TO ${role}`);await client.query(`GRANT SELECT ON ALL TABLES IN SCHEMA vinyl TO ${role}`);
+  await client.query(`GRANT INSERT,UPDATE,DELETE ON vinyl.collection_records,vinyl.wishlist_records TO ${role}`);
+  await client.query(`GRANT INSERT ON vinyl.covers TO ${role}`);await client.query(`GRANT UPDATE(updated_at) ON vinyl.users TO ${role}`);
+  await client.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA vinyl TO ${role}`);
+  await client.query(`GRANT UPDATE(business_writes) ON vinyl.runtime_control TO ${role}`);
+  await client.query(`GRANT UPDATE(generation,dirty_since,next_attempt_at) ON vinyl.mirror_state TO ${role}`);
+  await client.query(`SET LOCAL ROLE ${role}`);
+  assert.equal((await client.query("SELECT has_schema_privilege(current_user,'vinyl','CREATE') AS allowed")).rows[0].allowed,false);
+  await client.query('SELECT id FROM vinyl.users WHERE id=$1 FOR UPDATE',[u.id]);
+  const r=await recordRepository(client,u.id,'collection').insert({...record,id:randomUUID()});
+  await recordRepository(client,u.id,'collection').update({...r,note:'restricted runtime'},await recordRevision(r));
+  await client.query('UPDATE vinyl.runtime_control SET business_writes=business_writes+1 WHERE singleton');
+  await client.query('UPDATE vinyl.mirror_state SET generation=generation+1,dirty_since=clock_timestamp(),next_attempt_at=clock_timestamp() WHERE user_id=$1',[u.id]);
+ }finally{await client.query('ROLLBACK');client.release();}
+ assert.equal((await pool.query('SELECT 1 FROM pg_roles WHERE rolname=$1',[role])).rowCount,0);
 });

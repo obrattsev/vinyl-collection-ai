@@ -5,6 +5,7 @@ import { validateWishlistDraft, wishlistRevision } from '../../src/wishlist-reco
 import { checkAddition, isPotentialDuplicate } from '../../src/collection-rules.mjs';
 import { OperationError, validateInput } from '../record-operations.mjs';
 import { recordRepository, coverRepository, ownerTransaction, validId, validRevision } from './repositories.mjs';
+import { ownerBoundary } from './boundary.mjs';
 
 export function createPostgresServices(pool, userId, covers = null) {
   userId = validId(userId);
@@ -36,6 +37,7 @@ export function createPostgresServices(pool, userId, covers = null) {
   });
   const remove = (section,id,expected) => write(client => repo(client,section).remove(id,expected));
   return {
+    ...ownerBoundary(pool,userId),
     getCollection: () => repo(pool,'collection').list(),
     getWishlist: () => repo(pool,'wishlist').list(),
     createRecord: input => create('collection',input),

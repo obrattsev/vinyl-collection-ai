@@ -557,6 +557,7 @@ function requireRefresh() {
   for (const button of rows.querySelectorAll('button')) button.disabled = true;
 }
 function messageFor(code) {
+  if (code === 'WRITES_FROZEN') return 'Изменения временно приостановлены. Повторите после завершения обслуживания.';
   if (isWishlist && code === 'RESULT_UNCONFIRMED') return 'Результат операции не подтверждён. Повторите поиск или показ всего wish-list для проверки актуальных данных.';
   return ({ INVALID_RECORD:'Проверьте заполненные поля.', POTENTIAL_DUPLICATE:'Найдено совпадение издания. Проверьте показанные записи.', RECORD_CHANGED:'Запись изменилась. Показаны актуальные данные; подтвердите удаление заново.', TRANSFER_TARGET_MISMATCH:'Выбранная запись больше не соответствует wish-list. Обновите данные.', NOT_FOUND:'Запись не найдена.', RESULT_UNCONFIRMED:'Результат операции не подтверждён. Обновите коллекцию перед дальнейшими действиями.' })[code] || 'Не удалось выполнить операцию. Обновите коллекцию перед дальнейшими действиями.';
 }

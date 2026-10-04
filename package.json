@@ -12,7 +12,12 @@
     "test:pg": "node --test tests/postgres/*.test.mjs",
     "pg:migrate": "node scripts/pg-migrate.mjs",
     "pg:import": "node scripts/pg-import.mjs",
-    "acceptance:pg": "node scripts/pg-acceptance.mjs"
+    "acceptance:pg": "node scripts/pg-acceptance.mjs",
+    "pg:mirror": "node scripts/pg-mirror.mjs",
+    "pg:freeze": "node scripts/pg-freeze.mjs",
+    "pg:verify": "node scripts/pg-verify.mjs",
+    "pg:backup": "node scripts/pg-backup.mjs",
+    "pg:restore-rehearsal": "node scripts/pg-restore-rehearsal.mjs"
   },
   "dependencies": {
     "google-auth-library": "11.0.2",

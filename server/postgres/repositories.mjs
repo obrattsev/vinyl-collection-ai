@@ -64,9 +64,18 @@ export async function ownerTransaction(pool, userId, work) {
   let broken = false;
   try {
     await client.query('BEGIN');
+    // Freeze takes the exclusive counterpart and waits for every in-flight writer.
+    await client.query('SELECT pg_advisory_xact_lock_shared(44160403)');
+    const control = (await client.query('SELECT frozen FROM vinyl.runtime_control WHERE singleton')).rows[0];
+    if (!control || control.frozen) throw new OperationError(503, 'WRITES_FROZEN', { message: 'Изменения временно приостановлены. Обновите данные после завершения обслуживания.' });
     const result = await client.query('SELECT id FROM vinyl.users WHERE id=$1 FOR UPDATE', [userId]);
     if (!result.rowCount) throw new OperationError(404, 'NOT_FOUND');
-    const value = await work(client); await client.query('COMMIT'); return value;
+    const value = await work(client);
+    await client.query('UPDATE vinyl.runtime_control SET business_writes=business_writes+1 WHERE singleton');
+    await client.query(`UPDATE vinyl.mirror_state SET generation=generation+1,
+      next_attempt_at=CASE WHEN last_error IS NULL THEN LEAST(next_attempt_at,clock_timestamp()) ELSE next_attempt_at END,
+      dirty_since=COALESCE(dirty_since,clock_timestamp()) WHERE user_id=$1`, [userId]);
+    await client.query('COMMIT'); return value;
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch { broken = true; }
     throw error;

@@ -136,3 +136,7 @@ JSON записи имеет стабильный набор всех ключе
 ## Дополнение 3E
 
 Streaming — динамический read-only lookup публичных Artist/Album/Album Year и storefront. Apple ID/URL, выбор кандидата и media не входят в record models, Sheets mapping, duplicate rules, revisions или CSV. [Контракт](stage-3e-spec.md).
+
+## Stage 4B local boundary
+
+Согласованное изменение: после отдельного cutover PostgreSQL — единственный source of truth; существующие owner Sheets — одностороннее зеркало PG→Sheets. Dirty generation коммитится с mutation, Google sync асинхронный и не меняет CRUD result. Private media проверяется через DB ownership/reference. [Точный contract](stage-4b-local.md). Production пока остаётся на Sheets.

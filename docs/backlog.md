@@ -1,9 +1,9 @@
 # Backlog Vinyl Collection AI
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B–4F и Stage 5 не начаты.
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B принят по local acceptance; production phase разрешена, cutover не выполнен; 4C–4F и Stage 5 не начаты.
 
 
-Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
+Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B принят по local acceptance; production phase разрешена, cutover не выполнен; 4C–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
 
 ## Этап 1 — Полный локальный MVP без AI на реальных Google Sheets
 
@@ -106,9 +106,9 @@ Collection: «Показать всю коллекцию». Wish-list: «Пок�
 
 ## Этап 4 — PostgreSQL и многопользовательский режим
 
-**Статус: 4A реализован и принят владельцем по local visual acceptance.** Реализация в `feature/stage-4a-postgresql`; владелец разрешил commit/push/PR/merge без deployment. 4B–4F не начаты, production остаётся на Sheets. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
+**Статус: 4A реализован и принят владельцем по local visual acceptance.** Реализация в `feature/stage-4a-postgresql`; владелец разрешил commit/push/PR/merge без deployment. 4B реализуется локально; 4C–4F не начаты, production остаётся на Sheets. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
 
-User и ownership закладываются до миграции. До успешного cutover 4B действуют текущие Sheets contracts; после него PostgreSQL — единственный runtime source of truth Collection/Wish-list. Старые Sheets сохраняются как migration archive, без runtime reads/writes и без dual-write. Bug Reports остаётся отдельной системой на Google Sheets.
+User и ownership закладываются до миграции. До успешного cutover 4B действуют текущие Sheets contracts; после него PostgreSQL — единственный runtime source of truth Collection/Wish-list. Существующие owner Sheets становятся односторонним PG→Sheets mirror; PostgreSQL остаётся единственным source of truth, без dual-write transaction. Bug Reports остаётся отдельной системой на Google Sheets.
 
 ### 4A — Data foundation
 
@@ -122,6 +122,8 @@ Tests: schema/FK, repository parity, duplicates, revisions, concurrency и A/B i
 
 ### 4B — Owner migration и production cutover
 
+Local phase реализована и ожидает acceptance владельца: additive 002, production-compatible owner bridge/config, media authorization, durable PG→Sheets owner mirror, freeze/drain, verification и backup/restore helpers. Production phase не выполнялась; Timeweb daily VPS backup принят владельцем как infrastructure/offsite layer. Конкретный runbook и ограничения — [4B local](stage-4b-local.md), [cutover](stage-4b-cutover.md).
+
 Зависит от 4A. Первый существующий владелец становится обычным User; все production Collection/Wish-list/Covers/Favorites принадлежат ему. **Оба его раздела остаются public.** До открытия регистрации доступен один пользователь, но runtime уже применяет ownership. Session определяет user server-side; client-supplied owner ID не даёт прав. Все private GET/mutations, transfer, covers и favorite проверяют владельца; ошибки/conflict/duplicate responses не раскрывают чужие данные.
 
 Обязательный план: capacity preflight → rehearsal в изолированной БД → freeze/drain writes → согласованный backup Sheets/Covers (включая `.holds`) и DB → создание User → импорт → counts/checksums/UUID/fields/Favorites/FK/file reconciliation → переключение runtime при закрытых writes → smoke/acceptance → открытие writes. Import manifest и stable import key обеспечивают безопасный повтор; другой snapshot/конфликт останавливает импорт, blind upsert запрещён. Не исправлять production rows вручную и не терять unresolved holds.
@@ -130,7 +132,7 @@ Covers остаются на VPS filesystem; binary в PostgreSQL не хран�
 
 PostgreSQL на существующем VPS, без Docker/ORM/PgBouncer, если capacity preflight не выявит препятствий. Базовый план — PostgreSQL 16 из Ubuntu packages, актуальный security minor; local-only доступ (предпочтительно Unix socket), отдельные runtime/migration/backup permissions, секреты вне Git, небольшой connection pool, timeouts, systemd integration, monitoring диска/памяти/connections/WAL/autovacuum. Установка и cutover требуют отдельного production шага.
 
-До migration обязательны offsite backup, restore procedure и успешный restore rehearsal. **Конкретное offsite storage не выбрано; выбрать до production migration 4B.** Retention, RPO/RTO и capacity подтвердить до cutover; исходное предложение — daily backup, 7 daily + 4 weekly, RPO до 24 часов, RTO проверить rehearsal. Backup БД и файлов должен быть согласованным; отдельно контролировать успешность и возраст копий.
+До migration обязательны offsite backup, restore procedure и успешный restore rehearsal. **Конкретное Timeweb daily VPS backup принят владельцем как infrastructure/offsite layerо; выбрать до production migration 4B.** Retention, RPO/RTO и capacity подтвердить до cutover; исходное предложение — daily backup, 7 daily + 4 weekly, RPO до 24 часов, RTO проверить rehearsal. Backup БД и файлов должен быть согласованным; отдельно контролировать успешность и возраст копий.
 
 Tests: повтор/прерывание импорта, changed manifest, missing covers, точное сравнение данных, A/B/Guest UUID attacks, UI regression, restore. Rollback разделён: до новых PostgreSQL writes можно вернуть прежний runtime и неизменённые Sheets; после них Sheets устарели. После открытия writes — совместимый PostgreSQL code rollback или forward fix; data/schema rollback и обратный экспорт являются отдельной процедурой, без обещания безопасного автоматического downgrade.
 
@@ -249,3 +251,9 @@ Dynamic Daily Quote: AI/внешнее уточнение может выбир�
 **Статус: не реализована; нужна только при появлении legacy-данных без UUID.** Текущие рабочие таблицы уже используют UUID и не требуют миграции; задача не является незавершённой частью этапа 1.
 
 При появлении таких данных предусмотреть отдельную одноразовую миграцию для обоих Google Sheets-документов с присвоением UUID существующим строкам без ID. Обычный GET не создаёт и не исправляет идентификаторы. Требование не разрешает автоматически изменять реальные таблицы. Правила целостности — в [модели данных](data-rules.md).
+
+Stage 4B local phase: [implementation/acceptance](stage-4b-local.md), [gated production runbook](stage-4b-cutover.md). Production всё ещё Sheets; локальная реализация не разрешает deployment.
+
+## Production authorization — 04.10.2026
+
+Local acceptance 4B успешно принята владельцем. Git finalization и production phase разрешены с последовательными verification gates; cutover ещё не выполнен. Backup decision: Timeweb daily VPS disk backup + проверенные logical PG/Covers backups на VPS (7 daily + 4 weekly) + one-way owner Sheets mirror. S3/SFTP и новые providers/dependencies не добавлять. Timeweb daily VPS backup подтверждён владельцем; timestamp последнего provider backup средствами deployment environment не подтверждён. Более ранние требования отдельного offsite provider и ожидания local acceptance выше заменены этим решением. Freeze только непосредственно перед cutover, снять после verification.

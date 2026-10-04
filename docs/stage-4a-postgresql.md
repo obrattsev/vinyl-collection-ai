@@ -111,3 +111,7 @@ HTTP smoke: Collection/Wishlist pages и API — 200. Обычный `server/ind
 ```
 
 Ручная остановка cluster после остановки приложения: тот же `pg_ctl -D .../data stop -m fast`. System service/autostart не создавались. Stage 3 закрыт; 4A принят по local acceptance; 4B–4F и Stage 5 не начаты.
+
+## Последующее развитие 4B
+
+Исторические ограничения 4A выше описывают принятую версию этапа. В локальной 4B реализации подготовлены explicit production config, media boundary и owner mirror; production ещё не переключён. [Текущий contract](stage-4b-local.md).

@@ -1,5 +1,6 @@
 import { backendConfiguration, createPool } from './postgres/config.mjs';
 import { createPostgresServices } from './postgres/services.mjs';
+import { mirrorConfiguration } from './mirror-sheets.mjs';
 import { createStreamingService } from './streaming-service.mjs';
 import { reportConfiguration, readRelease, createReportRepository, createReportService } from './bug-reports.mjs';
 import { createAuth, authConfiguration } from './auth.mjs';
@@ -18,6 +19,7 @@ import { createPresentationService } from './presentation-service.mjs';
 let postgresPool;
 async function start() {
   const backend = backendConfiguration(process.env);
+  const mirror = mirrorConfiguration(process.env,backend);
   const { COLLECTION_SPREADSHEET_ID: spreadsheetId, COLLECTION_SHEET_NAME: sheetName,
     GOOGLE_APPLICATION_CREDENTIALS: keyFile, PORT: portValue = '8000' } = process.env;
   if (backend.backend === 'sheets' && (!spreadsheetId || !/^[a-zA-Z0-9_-]+$/.test(spreadsheetId) || !sheetName?.trim() ||
@@ -31,8 +33,15 @@ async function start() {
     const pool = createPool(backend.url);
     postgresPool = pool;
     const { rows } = await pool.query('SELECT collection_public,wishlist_public FROM vinyl.users WHERE id=$1',[backend.ownerId]);
-    // Current HTTP role model is single-owner/public. Never expose private fixtures via it.
-    if (!rows[0]?.collection_public || !rows[0]?.wishlist_public) throw Error('Local owner fixtures must explicitly be public');
+    if (!rows[0]) throw Error('Configured bridge owner does not exist');
+    if (process.env.NODE_ENV==='production') {
+      const role=(await pool.query('SELECT rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user')).rows[0];
+      if(role.rolsuper||role.rolcreatedb||role.rolcreaterole)throw Error('Unsafe runtime role');
+      const privileges=(await pool.query("SELECT has_schema_privilege(current_user,'vinyl','CREATE') AS schema_create,has_database_privilege(current_user,current_database(),'CREATE') AS database_create")).rows[0];
+      if(privileges.schema_create||privileges.database_create)throw Error('Runtime must not own schema/database or have CREATE privileges');
+    }
+    const mirrors=(await pool.query('SELECT user_id FROM vinyl.mirror_state')).rows;
+    if(mirrors.some(r=>!mirror||r.user_id!==mirror.ownerId)|| (mirror&&!mirrors.some(r=>r.user_id===mirror.ownerId)))throw Error('Mirror configuration/state mismatch');
     services = createPostgresServices(pool,backend.ownerId,process.env.COVERS_DIR ? createCoverStorage(process.env.COVERS_DIR) : null);
   } else {
     const serial = createWriteQueue();

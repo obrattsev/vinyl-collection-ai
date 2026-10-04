@@ -51,7 +51,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite, lookupStreaming }, { auth, quoteSource } = {}) {
+export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite, lookupStreaming, authorizeList, authorizeCover }, { auth, quoteSource } = {}) {
   let coverUploading = false;
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -110,6 +110,8 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       const media = path.match(/^\/media\/covers\/([^/]+)\/(thumb\.webp|image\.webp)$/);
       if (media && ['GET', 'HEAD'].includes(req.method)) {
         if (!coverStorage || !UUID.test(media[1])) throw new OperationError(404, 'NOT_FOUND');
+        await authorizeCover?.(media[1],session);
+        res.setHeader('Cache-Control','private, no-store');
         const bytes = await coverStorage.read(media[1], media[2]);
         res.writeHead(200, { 'Content-Type': 'image/webp', 'Content-Length': bytes.length });
         res.end(req.method === 'HEAD' ? undefined : bytes); return;
@@ -137,7 +139,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       if (path === '/api/wishlist' || path.startsWith('/api/wishlist/')) {
         if (!getWishlist) { json(res, 503, { error: 'WISHLIST_NOT_CONFIGURED' }); return; }
         if (path === '/api/wishlist') {
-          if (req.method === 'GET') { json(res, 200, visible(validateWishlist(await getWishlist()))); return; }
+          if (req.method === 'GET') { await authorizeList?.('wishlist',session); json(res, 200, visible(validateWishlist(await getWishlist()))); return; }
           if (req.method === 'POST') { json(res, 201, await createWishlistRecord(await readBody(req))); return; }
           res.setHeader('Allow', 'GET, POST'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return;
         }
@@ -155,7 +157,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         json(res, 404, { error: 'NOT_FOUND' }); return;
       }
       if (path === '/api/collection') {
-        if (req.method === 'GET') { json(res, 200, visible(validateCollection(await getCollection()))); return; }
+        if (req.method === 'GET') { await authorizeList?.('collection',session); json(res, 200, visible(validateCollection(await getCollection()))); return; }
         if (req.method === 'POST' && createRecord) {
           json(res, 201, await createRecord(await readBody(req))); return;
         }

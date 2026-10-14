@@ -27,9 +27,10 @@ try {
   await exec('/usr/bin/tar',['-xf',join(directory,'covers.tar'),'-C',target]);
   if(stateHash(await safeFiles(target))!==stateHash(manifest.coverFiles))throw Error('Restored cover checksums differ');
   await pgCommand(process.env.PG_BIN,'pg_restore',url,['--exit-on-error','--single-transaction','--no-owner','--no-privileges','--dbname',new URL(url).pathname.slice(1),join(directory,'database.dump')]);
+  // Upgrade old backups before the current repository reads newly added columns.
+  await migrate(pool);
   const snapshot={};for(const section of ['collection','wishlist'])snapshot[section]=await recordRepository(pool,manifest.userId,section).list();
   if(stateHash(snapshotReport(snapshot))!==stateHash(manifest.verification))throw Error('Restored data differs');
-  await migrate(pool);
   const auth=await verifyAuthRestore(pool);
   // A rehearsal must never expose restored live sessions or verification capabilities.
   // No external deletion history: quarantine does not reconstruct past deletions.

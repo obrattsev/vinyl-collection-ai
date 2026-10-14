@@ -78,3 +78,34 @@ STOP при checksum mismatch, плохом backup, потере baseline, не�
 
 
 14.10.2026: владелец разрешил Git finalization и controlled production rollout по этому плану, включая backup/rehearsal, migrations/grants, env, owner activation и disposable smoke. STOP conditions сохраняются; итог rollout фиксируется отдельно.
+
+## Restore rehearsal correction — 14.10.2026
+
+Production dump 16.15 is gzip-compressed. The original local 16.15 client was built with `--without-zlib`; restore exited 1 before loading data. Use a PostgreSQL 16 client with gzip support. Do not change the production backup format to accommodate a deficient local client.
+
+A second issue in the rehearsal script was corrected: apply migrations to the isolated restored DB before reading it with the current repository, which expects `sale_price` from migration 004. Canonical verification and auth quarantine still run; this does not apply migrations to production.
+
+Reproducible macOS client build (Xcode Command Line Tools, make and SDK zlib required; no service installation):
+
+```sh
+# Download postgresql-16.15.tar.bz2 from the official PostgreSQL source archive:
+# https://ftp.postgresql.org/pub/source/v16.15/postgresql-16.15.tar.bz2
+# Expected SHA-256:
+# c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed
+shasum -a 256 postgresql-16.15.tar.bz2
+mkdir -m 700 pg16-rehearsal
+cd pg16-rehearsal
+tar -xjf ../postgresql-16.15.tar.bz2
+pg_client_prefix="$PWD/runtime"
+cd postgresql-16.15
+./configure --prefix="$pg_client_prefix" --without-icu --without-readline --with-zlib
+make -C src/backend generated-headers
+make -j4 -C src/bin/pg_dump
+make -C src/interfaces/libpq install
+make -C src/bin/pg_dump install
+"$pg_client_prefix/bin/pg_restore" --version
+```
+
+Set `PG_BIN` to that absolute `runtime/bin` directory when running `scripts/pg-restore-rehearsal.mjs`. Retain the existing isolated test-DB marker checks. Use a new Covers destination for every attempt. `--list` alone does not prove decompression/restore: a full successful rehearsal is the capability check. The build directory may be removed after use and recreated by these instructions.
+
+Verified twice against the frozen pre-release backup: Collection 29, Wish-list 12, Favorites 6, Covers metadata 37 / files 74; all manifest checksums and pre-migration semantic hashes match, no orphan references, mirror metadata unchanged. Local migrations 001–005 present; quarantine leaves zero public users and zero auth sessions. The original backup is unchanged. Production migrations/deployment remain a separate authorized step.

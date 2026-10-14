@@ -98,3 +98,49 @@ test('unchanged session checks do not invalidate an in-flight owner form read', 
   assert.deepEqual(await read, [record]);
   assert.equal(ui.run('owner'), true);
 });
+
+for (const status of [200, 401]) test(`multiuser logout (${status}) keeps the full auth entry on repeated login`, async () => {
+  const ui = await prototypeUI(async () => ({ ...response({ role: 'guest', authMode: 'multiuser' }), status, ok: status === 200 }));
+  ui.run("window.location = { assign(path) { window.destination = path; } }; applySession({role:'owner',csrfToken:'modern-token',authMode:'multiuser'})");
+  await ui.get('#owner-logout').fire('click');
+  assert.equal(ui.run('owner'), false);
+  assert.equal(ui.get('#open-report').hidden, true);
+  await ui.get('#owner-login').fire('click');
+  assert.equal(ui.run('window.destination'), '/auth');
+  assert.equal(Boolean(ui.get('#login-dialog').open), false);
+  ui.run("applySession({role:'guest'})");
+  await ui.get('#owner-login').fire('click');
+  assert.equal(ui.run('window.destination'), '/auth');
+});
+
+test('a signed-in visitor reads another profile without getting its mutation controls', async () => {
+  const calls=[];
+  const ui=await prototypeUI(async url=>{calls.push(url);return response(publicRecords([record]));}, {owner:false,pathname:'/u/alice/collection'});
+  ui.run("applySession({role:'owner',login:'bob',csrfToken:'bob-token',authMode:'multiuser'})");
+  await ui.run('showCollection()');
+  assert.equal(calls.at(-1),'/api/u/alice/collection');
+  assert.equal(ui.get('#add-record').hidden,true);
+  assert.equal(ui.get('#open-report').hidden,false);
+  assert.equal(ui.run('owner'),false);
+  assert.equal(ui.get('#error').hidden,true);
+});
+
+test('bug report submission carries the current session CSRF token', async () => {
+  let sent;
+  const ui=await prototypeUI(async (url,options)=>{sent=options;return {status:503,json:async()=>({error:'REPORT_NOT_CONFIGURED'})};});
+  ui.get('#report-text').value='Test report';
+  await ui.get('#report-form').fire('submit');
+  assert.equal(sent.headers['X-CSRF-Token'],'test-csrf');
+});
+
+for(const privateList of [false,true])test(`profile logout reloads public records or explains privacy (${privateList})`,async()=>{
+ const calls=[];
+ const ui=await prototypeUI(async url=>{calls.push(url);return url==='/api/auth/logout'?{...response({role:'guest'}),ok:true}:privateList?{ok:false,json:async()=>({error:'COLLECTION_PRIVATE'})}:response(publicRecords([record]));},{pathname:'/alice'});
+ ui.run("applySession({role:'owner',login:'alice',csrfToken:'token',authMode:'multiuser'})");
+ await ui.get('#owner-logout').fire('click');
+ assert.deepEqual(calls,['/api/auth/logout','/api/u/alice/collection']);
+ assert.equal(ui.get('#add-record').hidden,true);
+ assert.equal(ui.run('owner'),false);
+ if(privateList){assert.match(ui.get('#error').textContent,/закрыт/);assert.equal(ui.get('#download-records').hidden,true);}
+ else assert.equal(ui.get('#table-container').hidden,false);
+});

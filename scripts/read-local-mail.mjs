@@ -1,0 +1,12 @@
+import {readFile,lstat} from 'node:fs/promises';
+import {resolve,basename,join} from 'node:path';
+const root=resolve(process.argv[2]||''),email=process.argv[3];
+if(!/^vinyl-4c-acceptance-[a-zA-Z0-9]+$/.test(basename(root))||!email)throw Error('Usage: read-local-mail.mjs local-acceptance-directory fixture-email');
+const marker=JSON.parse(await readFile(join(root,'stand.json'),'utf8'));
+if(marker.format!==1||!marker.database.startsWith('vinyl_4a_acceptance_4c_'))throw Error('Not a local auth fixture stand');
+const file=join(root,'mail','capture.jsonl'),stat=await lstat(file);
+if(!stat.isFile()||stat.isSymbolicLink()||(stat.mode&0o077))throw Error('Unsafe capture permissions');
+const entries=(await readFile(file,'utf8')).trim().split('\n').map(line=>JSON.parse(line));
+const latest=entries.findLast(item=>item.email.toLowerCase()===email.toLowerCase());
+if(!latest)throw Error('No captured message for that fixture email');
+console.log(JSON.stringify(latest,null,2));

@@ -1,3 +1,4 @@
+import { passwordWorkGate } from './security/resource-gate.mjs';
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { isIP } from 'node:net';
@@ -36,7 +37,7 @@ function canonicalIP(value) {
     return [word >> 8, word & 255];
   }).join('.');
 }
-function clientIP(req, production) {
+export function clientIP(req, production) {
   const peer = canonicalIP(req.socket.remoteAddress) || 'unknown';
   if (production && (peer === '127.0.0.1' || peer === '::1')) {
     // Invalid, missing, duplicate or chained values share the socket peer bucket.
@@ -114,7 +115,7 @@ export function createAuth({ passwordHash, origin, production = false, now = Dat
       if (verifying) { res.setHeader('Retry-After', '1'); throw new OperationError(429, 'RATE_LIMITED'); }
       verifying = true;
       let valid;
-      try { valid = timingSafeEqual(await derive(input.password, match[1], 64, options), Buffer.from(match[2], 'hex')); }
+      try { valid = timingSafeEqual(await passwordWorkGate.run(() => derive(input.password, match[1], 64, options)), Buffer.from(match[2], 'hex')); }
       finally { verifying = false; }
       if (!valid) throw new OperationError(401, 'INVALID_CREDENTIALS');
       prune(); sessions.delete(idFrom(req));

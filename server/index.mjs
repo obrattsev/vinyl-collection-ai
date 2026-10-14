@@ -1,3 +1,5 @@
+import { createMultiUserAuth } from './security/http-auth.mjs';
+import { scopedServices } from './security/scoped-services.mjs';
 import { backendConfiguration, createPool } from './postgres/config.mjs';
 import { createPostgresServices } from './postgres/services.mjs';
 import { mirrorConfiguration } from './mirror-sheets.mjs';
@@ -27,7 +29,10 @@ async function start() {
       Number(portValue) < 1 || Number(portValue) > 65535)) throw new Error('Invalid configuration');
   if (!/^[0-9]+$/.test(portValue) || Number(portValue) < 1 || Number(portValue) > 65535) throw Error('Invalid port');
   if (backend.backend === 'sheets') await access(keyFile);
-  const auth = createAuth(authConfiguration(process.env));
+  if (process.env.AUTH_MODE && !['legacy','multiuser'].includes(process.env.AUTH_MODE)) throw Error('Invalid AUTH_MODE');
+  if (process.env.AUTH_MODE==='multiuser' && backend.backend!=='postgres') throw Error('Multi-user auth requires PostgreSQL');
+  let auth = process.env.AUTH_MODE==='multiuser' ? null : createAuth(authConfiguration(process.env));
+  let servicesForSession;
   let services;
   if (backend.backend === 'postgres') {
     const pool = createPool(backend.url);
@@ -35,6 +40,8 @@ async function start() {
     const { rows } = await pool.query('SELECT collection_public,wishlist_public FROM vinyl.users WHERE id=$1',[backend.ownerId]);
     if (!rows[0]) throw Error('Configured bridge owner does not exist');
     if (process.env.NODE_ENV==='production') {
+      const authSchema=(await pool.query("SELECT to_regclass('vinyl.user_auth') AS name")).rows[0].name;
+      if(authSchema && process.env.AUTH_MODE!=='multiuser')throw Error('Auth database cannot bypass multiuser safety gates');
       const role=(await pool.query('SELECT rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user')).rows[0];
       if(role.rolsuper||role.rolcreatedb||role.rolcreaterole)throw Error('Unsafe runtime role');
       const privileges=(await pool.query("SELECT has_schema_privilege(current_user,'vinyl','CREATE') AS schema_create,has_database_privilege(current_user,current_database(),'CREATE') AS database_create")).rows[0];
@@ -57,11 +64,19 @@ async function start() {
     }
     Object.assign(services, createPresentationService({ collection, wishlist, covers, serial }));
   }
+  if (process.env.AUTH_MODE==='multiuser') {
+    auth=await createMultiUserAuth({pool:postgresPool,env:process.env,ownerId:backend.ownerId,covers:services.coverStorage});
+    await auth.accounts.cleanup().catch(()=>console.warn('Pending account cover cleanup; retry after restart.'));
+    servicesForSession=scopedServices(postgresPool,backend.ownerId,services.coverStorage);
+    const cleanup=setInterval(()=>auth.store.cleanup().catch(()=>console.error('Auth cleanup unavailable')),60000);
+    cleanup.unref();
+    await auth.store.cleanup();
+  }
   const reportConfig = reportConfiguration(process.env);
   if (reportConfig) { if (!keyFile || !isAbsolute(keyFile)) throw Error('Reports credentials required'); await access(keyFile); }
   if (reportConfig) services.createReport = createReportService(createReportRepository({ ...reportConfig, keyFile }), { version: await readRelease() });
   services.lookupStreaming = createStreamingService();
-  const server = createApp(services, { auth });
+  const server = createApp(services, { auth, servicesForSession });
   server.on('error', async () => {
     await postgresPool?.end();
     console.error('Не удалось запустить сервер. Проверьте доступность локального порта.');

@@ -9,6 +9,7 @@ const nonemptyText = value => typeof value === 'string' && normalize(value) !== 
 
 export function baseFieldErrors(record) {
   const errors = {};
+  if (Object.hasOwn(record,'salePrice') && !(record.salePrice === null || (typeof record.salePrice === 'number' && Number.isFinite(record.salePrice) && record.salePrice >= 0))) errors.salePrice = 'Укажите неотрицательную сумму в рублях.';
   for (const field of ['artist', 'album']) {
     if (!nonemptyText(record[field])) errors[field] = 'Заполните обязательное поле.';
   }
@@ -29,7 +30,7 @@ export function validateRecords(records, fields, fieldErrors, DataError) {
   const ids = new Set();
   for (const record of records) {
     if (!record || typeof record !== 'object' || Array.isArray(record) ||
-        Object.keys(record).length !== fields.length || !fields.every(field => Object.hasOwn(record, field)) ||
+        Object.keys(record).length !== fields.length + Number(Object.hasOwn(record,'salePrice')) || !fields.every(field => Object.hasOwn(record, field)) ||
         typeof record.id !== 'string' || !UUID.test(record.id) || ids.has(record.id.toLowerCase()) ||
         Object.keys(fieldErrors(record)).length) throw new DataError();
     ids.add(record.id.toLowerCase());
@@ -41,7 +42,7 @@ export function validateRecordDraft(draft, validate, DataError) {
   validate([{ ...draft, id: '00000000-0000-4000-8000-000000000001' }]);
   return draft;
 }
-export const snapshot = (record, fields) => JSON.stringify(fields.map(field => record[field]));
+export const snapshot = (record, fields) => JSON.stringify([...fields.map(field => record[field]), ...(record.salePrice != null ? [record.salePrice] : [])]);
 export async function revision(record, fields) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(snapshot(record, fields)));
   return '"' + Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('') + '"';

@@ -86,13 +86,16 @@ test('3B resize closes detail without resetting search/sort or requesting record
 for (const wishlist of [false, true]) for (const owner of [false, true]) test(`3B report ${wishlist}/${owner} sends exactly text/section, prevents double submit and clears only verified success`, async () => {
   const wait = deferred(); const calls = [];
   const ui = await prototypeUI(async (url, options) => { calls.push({ url, options }); return wait.promise; }, { wishlist, owner });
-  await ui.get('#open-report').fire('click'); assert.equal(ui.get('#report-dialog').open, true);
+  await ui.get('#open-report').fire('click');
+  if (!owner) { assert.equal(ui.get('#open-report').hidden,true); assert.equal(Boolean(ui.get('#report-dialog').open),false); assert.equal(calls.length,0); return; }
+  assert.equal(ui.get('#report-dialog').open, true);
   ui.get('#report-text').value = '😀'.repeat(2000); await ui.get('#report-text').fire('input');
   assert.equal(ui.get('#report-counter').textContent, '2000 / 2000'); assert.equal(ui.get('#send-report').disabled, false);
   const submit = ui.get('#report-form').fire('submit'); await ui.get('#report-form').fire('submit'); await ui.get('#close-report').fire('click');
   assert.equal(calls.length, 1); assert.equal(ui.get('#report-dialog').open, true);
   assert.deepEqual(JSON.parse(calls[0].options.body), { text: '😀'.repeat(2000), section: wishlist ? 'wishlist' : 'collection' });
-  assert.deepEqual(Object.keys(calls[0].options.headers), ['Content-Type']);
+  assert.deepEqual(Object.keys(calls[0].options.headers), ['Content-Type', 'X-CSRF-Token']);
+  assert.equal(calls[0].options.headers['X-CSRF-Token'],'test-csrf');
   wait.resolve({ status: 201, json: async () => ({ id: record.id }) }); await submit;
   assert.equal(ui.get('#report-text').value, ''); assert.equal(ui.get('#report-dialog').open, false);
   assert.equal(ui.get('#report-success').textContent, 'Сообщение отправлено');
@@ -104,7 +107,7 @@ test('3B report keeps draft for errors/uncertainty/cancel, shows retry and refus
     if (mode === 'network') throw Error('offline');
     return { status: mode === 'rate' ? 429 : mode === 'malformed' ? 201 : 503,
       headers: { get: () => '900' }, json: async () => mode === 'malformed' ? {} : ({ error: mode === 'unconfigured' ? 'REPORT_NOT_CONFIGURED' : 'RESULT_UNCONFIRMED' }) };
-  }, { owner: false });
+  }, { owner: true });
   await ui.get('#open-report').fire('click'); ui.get('#report-text').value = 'Draft';
   for (mode of ['rate', 'network', 'malformed', 'unconfigured', 'uncertain']) {
     await ui.get('#report-form').fire('submit'); assert.equal(ui.get('#report-text').value, 'Draft'); assert.equal(ui.get('#report-dialog').open, true);
@@ -130,7 +133,7 @@ test('3B report cannot open over an existing CRUD dialog or detail', async () =>
 });
 
 test('3B report clear resets draft/error/counter without closing; close preserves draft', async () => {
-  const ui = await prototypeUI(async () => { throw Error('offline'); }, { owner: false });
+  const ui = await prototypeUI(async () => { throw Error('offline'); }, { owner: true });
   await ui.get('#open-report').fire('click'); ui.get('#report-text').value = 'Draft';
   await ui.get('#report-form').fire('submit'); assert.ok(ui.get('#report-status').textContent);
   await ui.get('#clear-report').fire('click');
@@ -142,7 +145,7 @@ test('3B report clear resets draft/error/counter without closing; close preserve
   await ui.get('#open-report').fire('click'); assert.equal(ui.get('#report-text').value, 'Keep me');
 });
 test('3B report sending blocks clearing, close and Escape without losing text', async () => {
-  const wait = deferred(); const ui = await prototypeUI(async () => wait.promise, { owner: false });
+  const wait = deferred(); const ui = await prototypeUI(async () => wait.promise, { owner: true });
   await ui.get('#open-report').fire('click'); ui.get('#report-text').value = 'Sending';
   const task = ui.get('#report-form').fire('submit');
   await ui.get('#clear-report').fire('click'); await ui.get('#close-report').fire('click');
@@ -168,7 +171,7 @@ test('3B accepted markup keeps sort controls grouped, helper exact, close labell
 
 test('3B success status expires and reopening report cancels the previous status timer', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const ui = await prototypeUI(async () => ({ status: 201, json: async () => ({ id: record.id }) }), { owner: false });
+  const ui = await prototypeUI(async () => ({ status: 201, json: async () => ({ id: record.id }) }), { owner: true });
   await ui.get('#open-report').fire('click'); ui.get('#report-text').value = 'Sent'; await ui.get('#report-form').fire('submit');
   t.mock.timers.tick(4999); assert.equal(ui.get('#report-success').textContent, 'Сообщение отправлено');
   t.mock.timers.tick(1); assert.equal(ui.get('#report-success').textContent, '');

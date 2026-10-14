@@ -1,0 +1,40 @@
+{
+  "usage": "Publication authorized by project owner for Stage 4C; owner accepted image-rights risk. Rights clearance not independently verified.",
+  "sources": [
+    {
+      "name": "velvet",
+      "page": "https://music.apple.com/us/album/the-velvet-underground-nico-45th-anniversary-edition/1440851613?uo=4",
+      "image": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/92/93/39/9293397f-a707-237e-ec7e-0ca613a67e3c/06UMGIM04143.rgb.jpg/1200x1200bb.jpg",
+      "sourceWidth": 1200,
+      "sourceHeight": 1191
+    },
+    {
+      "name": "pink-floyd",
+      "page": "https://en.wikipedia.org/wiki/The_Dark_Side_of_the_Moon",
+      "image": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/Dark_Side_of_the_Moon.png/1280px-Dark_Side_of_the_Moon.png",
+      "sourceWidth": 1280,
+      "sourceHeight": 1280
+    },
+    {
+      "name": "bowie",
+      "page": "https://music.apple.com/us/album/hunky-dory-2015-remaster/1039798000?uo=4",
+      "image": "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/f0/b9/68/f0b9680e-b028-b3d6-f793-7c268256499a/825646286034.jpg/1200x1200bb.jpg",
+      "sourceWidth": 1200,
+      "sourceHeight": 1200
+    },
+    {
+      "name": "beatles",
+      "page": "https://music.apple.com/us/album/abbey-road-2019-mix/1474815798?uo=4",
+      "image": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/48/53/43/485343e3-dd6a-0034-faec-f4b6403f8108/13UMGIM63890.rgb.jpg/1200x1200bb.jpg",
+      "sourceWidth": 1200,
+      "sourceHeight": 1200
+    },
+    {
+      "name": "stones",
+      "page": "https://music.apple.com/us/album/sticky-fingers-2015-remaster/1440812661?uo=4",
+      "image": "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/7f/e0/b4/7fe0b4da-36cd-a1d0-0f19-ef3fec18e3cd/08UMGIM15742.rgb.jpg/1200x1200bb.jpg",
+      "sourceWidth": 1200,
+      "sourceHeight": 1200
+    }
+  ]
+}

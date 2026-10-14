@@ -98,10 +98,11 @@ test('report limiter enforces independent rolling client and hourly ceilings, ex
   for (let i = 0; i < 46; i++) assert.equal(limit(`peer${i}`), 0);
   assert.equal(limit('other'), 2700); time += 2700000; assert.equal(limit('other'), 0);
 });
-for (const owner of [false, true]) test(`report HTTP owner=${owner}: guest exception is exact and has no public inbox`, async t => {
+for (const owner of [false, true]) test(`report HTTP requires an authenticated owner (owner=${owner})`, async t => {
   const repo = memory(); const { url, post } = await start(t, { createReport: createReportService(repo) });
   const headers = owner ? await loginOwner(url) : {};
-  const result = await post(input, headers); assert.equal(result.status, 201); assert.ok((await result.json()).id);
+  const result = await post(input, headers); assert.equal(result.status, owner ? 201 : 401);
+  if (owner) assert.ok((await result.json()).id); else assert.deepEqual(await result.json(), { error: 'AUTH_REQUIRED' });
   for (const method of ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS']) {
     const res = await fetch(url + '/api/bug-reports', { method, headers: { Origin: url, ...headers } }); assert.equal(res.status, 405);
   }
@@ -109,28 +110,31 @@ for (const owner of [false, true]) test(`report HTTP owner=${owner}: guest excep
     ['POST', '/api/wishlist'], ['PUT', '/api/wishlist/id'], ['DELETE', '/api/wishlist/id'], ['POST', '/api/wishlist/id/transfer']]) {
     assert.equal((await fetch(url + path, { method, headers: { Origin: url } })).status, 401);
   }
-  assert.equal(repo.records.length, 1);
+  assert.equal(repo.records.length, owner ? 1 : 0);
 });
 test('report HTTP rejects cross-origin, absent origin and spoofed section metadata', async t => {
-  const repo = memory(); const { post } = await start(t, { createReport: createReportService(repo) });
+  const repo = memory(); const { url, post } = await start(t, { createReport: createReportService(repo) });
   for (const headers of [{ Origin: 'https://evil.example' }, { Origin: '' }, { 'Sec-Fetch-Site': 'cross-site' }]) assert.equal((await post(input, headers)).status, 403);
-  assert.equal((await post({ ...input, id: 'client-id' })).status, 400); assert.equal(repo.records.length, 0);
+  const owner = await loginOwner(url);
+  assert.equal((await post({ ...input, id: 'client-id' }, owner)).status, 400); assert.equal(repo.records.length, 0);
 });
 test('report HTTP rate counts invalid attempts, emits Retry-After and leaves public GET available', async t => {
   const { url, post } = await start(t, { createReport: createReportService(memory()) });
-  for (let i = 0; i < 3; i++) assert.equal((await post({})).status, 400);
-  const res = await post(); assert.equal(res.status, 429); assert.ok(Number(res.headers.get('Retry-After')) > 0);
+  const owner = await loginOwner(url);
+  for (let i = 0; i < 3; i++) assert.equal((await post({}, owner)).status, 400);
+  const res = await post(input, owner); assert.equal(res.status, 429); assert.ok(Number(res.headers.get('Retry-After')) > 0);
   assert.equal((await fetch(url + '/api/collection')).status, 200);
   await loginOwner(url);
 });
 test('report HTTP body limit counts bytes, accepts 2000 emoji, rejects oversized JSON and wrong content type', async t => {
   const repo = memory(); const { url, post } = await start(t, { createReport: createReportService(repo) });
-  assert.equal((await post({ ...input, text: '😀'.repeat(2000) })).status, 201);
-  const res = await fetch(url + '/api/bug-reports', { method: 'POST', headers: { Origin: url, 'Content-Type': 'application/json' }, body: JSON.stringify(input) + ' '.repeat(16384) });
+  const owner = await loginOwner(url);
+  assert.equal((await post({ ...input, text: '😀'.repeat(2000) }, owner)).status, 201);
+  const res = await fetch(url + '/api/bug-reports', { method: 'POST', headers: { ...owner, 'Content-Type': 'application/json' }, body: JSON.stringify(input) + ' '.repeat(16384) });
   assert.equal(res.status, 400);
-  assert.equal((await post(input, { 'Content-Type': 'text/plain' })).status, 400); assert.equal(repo.records.length, 1);
+  assert.equal((await post(input, { ...owner, 'Content-Type': 'text/plain' })).status, 400); assert.equal(repo.records.length, 1);
 });
 test('unconfigured report API fails closed without touching collection sources', async t => {
-  const { post } = await start(t); const result = await post(); assert.equal(result.status, 503);
+  const { url, post } = await start(t); const owner = await loginOwner(url); const result = await post(input, owner); assert.equal(result.status, 503);
   assert.deepEqual(await result.json(), { error: 'REPORT_NOT_CONFIGURED' });
 });

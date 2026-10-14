@@ -15,7 +15,7 @@ import * as rules from '../../src/collection-rules.mjs';
 import { GENRES } from '../../src/genres.mjs';
 import * as inputs from '../../prototype/input-controls.mjs';
 
-export async function prototypeUI(fetch, { wishlist = false, owner = true, compact = false } = {}) {
+export async function prototypeUI(fetch, { wishlist = false, owner = true, compact = false, pathname = '/collection' } = {}) {
   const elements = new Map();
   const downloads = [];
   const media = { matches: compact, handlers: [], addEventListener(type, fn) { this.handlers.push(fn); } };
@@ -54,7 +54,7 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true, compa
   const document = {
     handlers: {},
     addEventListener(type, fn) { this.handlers[type] = fn; },
-    body: { dataset: { section: wishlist ? "wishlist" : "collection" } },
+    body: { dataset: { section: wishlist ? "wishlist" : "collection", profileLogin: pathname.match(/^\/u\/([^/]+)\//)?.[1] || (pathname.match(/^\/([^/]+)(?:\/(?:collection|wishlist))?$/)?.[1] && !["collection","wishlist"].includes(pathname.slice(1)) ? pathname.split("/")[1] : "") } },
     querySelector(selector) { if (!elements.has(selector)) elements.set(selector, new Element()); return elements.get(selector); },
     createElement: tag => new Element(tag), createDocumentFragment: () => new Element()
   };
@@ -64,7 +64,7 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true, compa
     const input = document.querySelector(name === 'albumYear' ? '#search-year' : `#search-${name}`);
     input.id = name === 'albumYear' ? 'search-year' : `search-${name}`; return [name, input];
   }));
-  const context = vm.createContext({ document, window: { addEventListener() {}, matchMedia: () => media }, fetch, Event, URL, Blob, setTimeout,
+  const context = vm.createContext({ document, window: { location: { pathname, assign(path) { this.destination = path; } }, addEventListener() {}, matchMedia: () => media }, fetch, Event, URL, Blob, setTimeout,
     FormData: class { constructor(form) { return [...(form === document.querySelector('#search-form') ? searchInputs : namedInputs)].map(([name, input]) => [name, input.value]); } },
     mountStreaming, createStreamingDialog, createMobileRecords, bindBugReport, bindDailyQuote, ...coverUI, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
   const source = (await readFile(new URL('../../prototype/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');

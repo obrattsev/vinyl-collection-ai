@@ -37,6 +37,8 @@ export function createCoverStorage(directory) {
       } catch { await rm(temporary, { recursive: true, force: true }); throw new OperationError(503, 'COVER_STORAGE_UNAVAILABLE'); }
       return id;
     },
+    // Called only for committed account-deletion entries, never client paths.
+    async removeDeleted(id) { await rm(path(id), { recursive: true, force: true }); },
     async read(id, size) {
       if (!['image.webp', 'thumb.webp'].includes(size)) throw new OperationError(404, 'NOT_FOUND');
       try { return await readFile(join(path(id), size)); }

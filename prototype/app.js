@@ -15,6 +15,8 @@ import { searchCollection, validateSearchCriteria, checkAddition, isPotentialDup
 
 const isWishlist = document.body?.dataset.section === 'wishlist';
 const endpoint = isWishlist ? '/api/wishlist' : '/api/collection';
+const profileLogin = document.body?.dataset.profileLogin || null;
+const readEndpoint = profileLogin ? `/api/u/${profileLogin}/${isWishlist ? 'wishlist' : 'collection'}` : endpoint;
 const readCriteria = () => ({ ...Object.fromEntries(new FormData(form)), ...(!isWishlist ? { favoriteOnly: Boolean(document.querySelector('#favorite-only').checked) } : {}) });
 const validateCriteria = isWishlist ? validateWishlistCriteria : validateSearchCriteria;
 const validateRecords = isWishlist ? validateWishlist : validateCollection;
@@ -73,7 +75,7 @@ for (const field of SORT_FIELDS) document.querySelector(`#sort-${field}`).addEve
 });
 downloadButton.addEventListener('click', () => {
   if (loading || writing || !displayedRecords.length) return;
-  const columns = [...fields, ...(owner && isWishlist ? ['storeUrl'] : [])].map(field => [field, labels[field]]);
+  const columns = [...fields, ...(displayedRecords.some(r=>r.salePrice!=null)?['salePrice']:[]), ...(owner && isWishlist ? ['storeUrl'] : [])].map(field => [field, labels[field]]);
   const url = URL.createObjectURL(new Blob([recordsCsv(displayedRecords, columns)], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a'); link.href = url; link.download = isWishlist ? 'wishlist.csv' : 'collection.csv';
   link.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
@@ -125,7 +127,7 @@ async function showCollection(criteria = {}) {
   rows.replaceChildren();
 
   try {
-    const response = await fetch(endpoint, { cache: 'no-store' });
+    const response = await fetch(readEndpoint, { cache: 'no-store' });
     if (!response.ok) { const body = await response.json(); throw new Error(body.error); }
     const records = await response.json();
     if (version !== loadVersion) return;
@@ -161,7 +163,7 @@ async function showCollection(criteria = {}) {
   } catch (cause) {
     if (version !== loadVersion) return;
     status.textContent = '';
-    error.textContent = cause.message === 'WISHLIST_NOT_CONFIGURED' ? 'Wish-list ещё не подключён. Настройте отдельный Google Sheets-документ на сервере.' : isWishlist ? 'Ошибка загрузки данных. Не удалось загрузить wish-list.' : 'Ошибка загрузки данных. Не удалось загрузить коллекцию.';
+    error.textContent = cause.message === 'COLLECTION_PRIVATE' ? 'Этот список закрыт. Войдите в аккаунт владельца, чтобы увидеть его.' : profileLogin && cause.message === 'NOT_FOUND' ? 'Пользователь не найден.' : cause.message === 'WISHLIST_NOT_CONFIGURED' ? 'Wish-list ещё не подключён. Настройте отдельный Google Sheets-документ на сервере.' : isWishlist ? 'Ошибка загрузки данных. Не удалось загрузить wish-list.' : 'Ошибка загрузки данных. Не удалось загрузить коллекцию.';
     error.hidden = false;
   } finally {
     if (version === loadVersion) {
@@ -179,6 +181,8 @@ function renderRecords(records) {
   viewRecords = records; displayedRecords = sortRecords(records, activeSort);
   desktopQuickControls.clear();
   const showQuickColumn = !isWishlist || owner || records.some(record => recordCover(record));
+  const saleVisible=displayedRecords.some(r=>r.salePrice!=null);
+  document.querySelector('#heading-salePrice').hidden=!saleVisible;
   document.querySelector('#quick-heading').hidden = !showQuickColumn;
   rows.replaceChildren(); downloadButton.disabled = !displayedRecords.length; downloadButton.hidden = !displayedRecords.length;
   const fragment = document.createDocumentFragment();
@@ -193,7 +197,7 @@ function renderRecords(records) {
     if (quick.children.length) quickCell.append(quick);
     desktopQuickControls.set(presentationKey(record), { favorite, cover });
     row.append(quickCell);
-    for (const field of [...fields, ...(owner ? isWishlist ? ['storeUrl'] : purchaseFields : [])]) {
+    for (const field of [...fields, ...(owner ? isWishlist ? ['storeUrl'] : purchaseFields : []), ...(saleVisible?['salePrice']:[])]) {
       const cell = document.createElement('td');
       if (field === 'storeUrl' || field === 'note') {
         const content = document.createElement('span'); content.className = field === 'note' ? 'table-note' : 'table-store-link';
@@ -235,7 +239,7 @@ function renderRecords(records) {
   mobileView.render(displayedRecords);
 }
 
-const collectionLabels = { artist:'Исполнитель', album:'Альбом', genre:'Жанр', additionalGenre:'Дополнительный жанр', label:'Лейбл', albumYear:'Год альбома', recordYear:'Год пластинки', editionType:'Тип издания', note:'Примечание', purchaseDate:'Дата покупки', purchaseStore:'Магазин покупки', purchasePrice:'Цена покупки (руб.)' };
+const collectionLabels = { artist:'Исполнитель', album:'Альбом', genre:'Жанр', additionalGenre:'Дополнительный жанр', label:'Лейбл', albumYear:'Год альбома', recordYear:'Год пластинки', editionType:'Тип издания', note:'Примечание', purchaseDate:'Дата покупки', purchaseStore:'Магазин покупки', purchasePrice:'Цена покупки (руб.)', salePrice:'Цена продажи (руб.)' };
 const wishlistLabels = Object.fromEntries(Object.entries(collectionLabels).filter(([field]) => !field.startsWith('purchase')));
 wishlistLabels.storeUrl = 'Ссылка';
 const labels = isWishlist ? wishlistLabels : collectionLabels;
@@ -283,7 +287,7 @@ for (const [name, title] of Object.entries(isWishlist ? { ...labels, ...Object.f
     if (name === 'purchaseDate') {
       input.placeholder = 'DD.MM.YYYY'; input.inputMode = 'numeric'; input.maxLength = 10;
     }
-    if (name === 'purchasePrice') { input.inputMode = 'decimal'; input.placeholder = '0 — бесплатно'; }
+    if (name === 'purchasePrice' || name === 'salePrice') { input.inputMode = 'decimal'; input.placeholder = '0 — бесплатно'; }
   }
   if (['artist','album','albumYear'].includes(name)) input.required = true;
   if (['artist','album','label'].includes(name)) {
@@ -298,7 +302,7 @@ for (const [name, title] of Object.entries(isWishlist ? { ...labels, ...Object.f
   if (isWishlist && purchaseFields.includes(name)) { label.hidden = true; input.disabled = true; }
   input.fieldContainer = label;
   if (name === 'purchaseDate') bindInputConstraint(input, formatDateInput);
-  if (name === 'purchasePrice') bindInputConstraint(input, formatPriceInput);
+  if (name === 'purchasePrice' || name === 'salePrice') bindInputConstraint(input, formatPriceInput);
 
 }
 const addCover = createAddCoverField({ document, isOpen: () => dialog.open,
@@ -307,6 +311,8 @@ recordForm.addEventListener('reset', () => addCover.reset());
 function readDraft() {
   const input = Object.fromEntries(Object.keys(activeLabels).map(key => [key, formInputs.get(key).value.trim() ? formInputs.get(key).value : null]));
   if (Object.hasOwn(input, 'purchaseDate')) input.purchaseDate = inputDate(input.purchaseDate);
+  if (input.salePrice == null) { if(editSource?.salePrice != null) input.salePrice=null; else delete input.salePrice; }
+  else { const price=formatPriceInput(input.salePrice);input.salePrice=price===null?NaN:Number(price); }
   if (Object.hasOwn(input, 'purchasePrice') && input.purchasePrice !== null) {
     const price = formatPriceInput(input.purchasePrice);
     input.purchasePrice = price === null ? NaN : Number(price);
@@ -332,7 +338,7 @@ function setFormMode(source = null) {
     for (const value of ['', ...GENRES]) { const option = document.createElement('option'); option.value = value; option.textContent = value || 'Неизвестно'; input.append(option); }
   }
   transferSource = source; transferTarget = null;
-  activeLabels = source ? Object.fromEntries(purchaseFields.map(field => [field, collectionLabels[field]])) : labels;
+  activeLabels = source ? Object.fromEntries(purchaseFields.map(field => [field, collectionLabels[field]])) : Object.fromEntries(Object.entries(labels).filter(([field])=>field!=='salePrice'||authMode==='multiuser'));
   for (const [name, input] of formInputs) {
     input.disabled = !Object.hasOwn(activeLabels, name);
     input.fieldContainer.hidden = input.disabled;
@@ -363,7 +369,9 @@ recordForm.addEventListener('reset', () => { showFieldErrors = false; renderFiel
 
 function displayRecord(target, record, displayLabels = labels) {
   const list = document.createElement('dl');
-  for (const [field, title] of Object.entries(displayLabels)) {
+  const detailLabels={...displayLabels,...(record.salePrice!=null ? {salePrice:collectionLabels.salePrice} : {})};
+  for (const [field, title] of Object.entries(detailLabels)) {
+    if(field==='salePrice' && record.salePrice==null && !(editSource?.salePrice!=null && target===preview))continue;
     const term = document.createElement('dt'); term.textContent = title;
     const value = document.createElement('dd');
     if (field === 'storeUrl' && target === document.querySelector('#detail-content')) renderStoreLink(document, value, record[field], 'Открыть ↗');
@@ -433,7 +441,7 @@ async function openEdit(record) {
       const option = document.createElement('option'); option.value = value; option.textContent = value; input.append(option);
     }
     input.value = String(value);
-    editInitialValues.set(field, { controlValue: input.value, storedValue: record[field] });
+    if(Object.hasOwn(record,field)) editInitialValues.set(field, { controlValue: input.value, storedValue: record[field] });
     input.dispatchEvent(new Event('change'));
   }
   editDraft(); recordError.textContent = '';
@@ -709,9 +717,13 @@ const authStatus = document.querySelector('#auth-status');
 const loginButton = document.querySelector('#owner-login');
 const logoutButton = document.querySelector('#owner-logout');
 
+let authMode = profileLogin ? 'multiuser' : 'legacy';
+let authenticated = false;
 function applySession(session) {
-  const nextOwner = session.role === 'owner' && typeof session.csrfToken === 'string';
-  const nextToken = nextOwner ? session.csrfToken : null;
+  authMode = session.authMode || authMode;
+  authenticated = session.role === 'owner' && typeof session.csrfToken === 'string';
+  const nextOwner = authenticated && (!profileLogin || session.login?.toLowerCase() === profileLogin);
+  const nextToken = authenticated ? session.csrfToken : null;
   if (owner !== nextOwner || csrfToken !== nextToken) {
     authVersion++; dialogRun++;
     resetResults();
@@ -723,8 +735,12 @@ function applySession(session) {
     recordForm.reset(); draft = selected = transferSource = transferTarget = null;
     operationStatus.textContent = recordError.textContent = deleteError.textContent = '';
   }
-  owner = nextOwner; csrfToken = owner ? session.csrfToken : null;
-  loginButton.hidden = owner; logoutButton.hidden = !owner;
+  owner = nextOwner; csrfToken = authenticated ? session.csrfToken : null;
+  const multiuser=authMode==='multiuser';
+  loginButton.hidden = multiuser || authenticated; logoutButton.hidden = multiuser || !authenticated;
+  const accountLink=document.querySelector('#account-link');accountLink.hidden=!multiuser;
+  accountLink.href='/auth?returnTo='+encodeURIComponent(profileLogin ? `/${profileLogin}/${isWishlist?'wishlist':'collection'}` : '/');
+  document.querySelector('#open-report').hidden = !authenticated;
   document.querySelector('#add-record').hidden = !owner;
   document.querySelector('#actions-heading').hidden = !owner;
   if (isWishlist) document.querySelector('#store-heading').hidden = !owner;
@@ -748,6 +764,7 @@ async function checkSession() {
 }
 loginButton.addEventListener('click', () => {
   if (authBusy || writing) return;
+  if (authMode === 'multiuser') { window.location.assign('/auth'); return; }
   passwordInput.value = ''; loginError.textContent = ''; loginDialog.showModal(); passwordInput.focus();
 });
 document.querySelector('#cancel-login').addEventListener('click', () => { if (!authBusy) loginDialog.close(); });
@@ -773,9 +790,10 @@ logoutButton.addEventListener('click', async () => {
   if (authBusy || writing) return;
   authBusy = true; ++authVersion; logoutButton.disabled = true;
   try {
-    const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
+    const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken, 'Content-Type': 'application/json' }, body: '{}' });
     if (!response.ok && response.status !== 401) throw Error('logout');
     applySession({ role: 'guest' });
+    if (profileLogin) await showCollection();
   } catch { authStatus.textContent = 'Выход не подтверждён. Повторите выход.'; }
   finally { authBusy = false; logoutButton.disabled = false; }
 });
@@ -859,8 +877,8 @@ const coverDialog = createCoverDialog({ document, isOwner: () => owner, canAct: 
     if (coverFocusRecord) restoreQuickFocus(coverFocusRecord, 'cover');
     coverFocusRecord = null;
   }, 0) });
-bindBugReport({ document, fetch, section: isWishlist ? 'wishlist' : 'collection',
-  canOpen: () => !writing && !authBusy && !anyDialogOpen() && !document.querySelector('#detail-dialog').open });
+bindBugReport({ document, fetch, section: isWishlist ? 'wishlist' : 'collection', getCsrfToken: () => csrfToken,
+  canOpen: () => authenticated && !writing && !authBusy && !anyDialogOpen() && !document.querySelector('#detail-dialog').open });
 
-document.addEventListener('DOMContentLoaded', async () => { resetResults(); void bindDailyQuote({ document, window, fetch, section: isWishlist ? 'wishlist' : 'collection' }); await checkSession(); });
+document.addEventListener('DOMContentLoaded', async () => { resetResults(); void bindDailyQuote({ document, window, fetch, section: isWishlist ? 'wishlist' : 'collection' }); await checkSession(); if (profileLogin) await showCollection(); });
 window.addEventListener('focus', () => { if (!authBusy && !writing) void checkSession(); });

@@ -8,7 +8,7 @@
   <script src="/assets/app.js" type="module"></script>
 </head>
 <body>
-  <main>
+  <main class="collection-surface">
     <header class="collection-header">
       <div class="brand">
         <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
@@ -27,6 +27,7 @@
     <div class="section-bar">
       <nav class="section-nav" aria-label="Разделы"><a href="/collection" aria-current="page">Коллекция</a><a href="/wishlist">Wish-list</a></nav>
       <div class="owner-access">
+        <a id="account-link" class="button-secondary" href="/auth" hidden>Личный кабинет</a>
         <button id="owner-login" class="button-secondary" type="button">Войти</button>
         <button id="owner-logout" class="button-secondary" type="button" hidden>Выйти</button>
       </div>
@@ -72,7 +73,7 @@
             <th scope="col" id="sort-heading-artist"><button type="button" class="sort-button" id="sort-artist">Исполнитель</button></th><th scope="col" id="sort-heading-album"><button type="button" class="sort-button" id="sort-album">Альбом</button></th>
             <th scope="col" id="sort-heading-genre"><button type="button" class="sort-button" id="sort-genre">Жанр</button></th><th scope="col" id="sort-heading-additionalGenre"><button type="button" class="sort-button" id="sort-additionalGenre">Дополнительный жанр</button></th><th scope="col" id="sort-heading-label"><button type="button" class="sort-button" id="sort-label">Лейбл</button></th>
             <th scope="col" id="sort-heading-albumYear"><button type="button" class="sort-button" id="sort-albumYear">Год альбома</button></th><th scope="col" id="sort-heading-recordYear"><button type="button" class="sort-button" id="sort-recordYear">Год пластинки</button></th>
-            <th scope="col" id="sort-heading-editionType"><button type="button" class="sort-button" id="sort-editionType">Тип издания</button></th><th scope="col">Примечание</th><th scope="col" id="heading-purchaseDate" hidden>Дата покупки</th><th scope="col" id="heading-purchaseStore" hidden>Магазин покупки</th><th scope="col" id="heading-purchasePrice" hidden>Цена покупки (руб.)</th><th scope="col" id="actions-heading" hidden>Действия</th>
+            <th scope="col" id="sort-heading-editionType"><button type="button" class="sort-button" id="sort-editionType">Тип издания</button></th><th scope="col">Примечание</th><th scope="col" id="heading-purchaseDate" hidden>Дата покупки</th><th scope="col" id="heading-purchaseStore" hidden>Магазин покупки</th><th scope="col" id="heading-purchasePrice" hidden>Цена покупки (руб.)</th><th scope="col" id="heading-salePrice" hidden>Цена продажи (руб.)</th><th scope="col" id="actions-heading" hidden>Действия</th>
           </tr></thead>
           <tbody id="records"></tbody>
         </table>
@@ -82,7 +83,7 @@
       <p id="status" tabindex="-1" role="status" aria-live="polite">Здесь появятся результаты поиска.</p>
       <button type="button" id="download-records" class="button-secondary" hidden disabled>Скачать csv</button>
     </div>
-    <button id="open-report" type="button" class="button-secondary">Сообщить об ошибке</button>
+    <button id="open-report" hidden type="button" class="button-secondary">Сообщить об ошибке</button>
     <dialog id="cover-dialog" aria-labelledby="cover-title">
       <div class="cover-header"><h2 id="cover-title">Обложка</h2><button id="close-cover" type="button" class="button-secondary" aria-label="Закрыть">×</button></div>
       <div id="cover-preview" hidden></div>

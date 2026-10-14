@@ -1,3 +1,4 @@
+import { requireWorkerSafety } from '../security/deletion-safety.mjs';
 import { createHash } from 'node:crypto';
 import { recordRepository, validId } from './repositories.mjs';
 export const MIRROR_LOCK = 44160404;
@@ -17,10 +18,12 @@ export async function enableMirror(pool,userId) {
 }
 export async function reconcile(pool,userId,adapter,{force=false,random=Math.random}={}) {
   userId=validId(userId);
-  const client=await pool.connect();let locked=false,broken=false,attempted=false;
+  const client=await pool.connect();let locked=false,maintenance=false,broken=false,attempted=false;
   const disconnected=()=>{broken=true;};client.on('error',disconnected);
   async function checkConnection(){if(broken)throw Error('Mirror lock lost');await client.query('SELECT 1');}
   try {
+    await client.query('SELECT pg_advisory_lock_shared(44160403)');maintenance=true;
+    await requireWorkerSafety(client,undefined,userId);
     locked=(await client.query('SELECT pg_try_advisory_lock($1) AS locked',[MIRROR_LOCK])).rows[0].locked;
     if (!locked) return {status:'busy'};
     const state=await mirrorStatus(client,userId);
@@ -30,7 +33,7 @@ export async function reconcile(pool,userId,adapter,{force=false,random=Math.ran
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
     const generation=(await client.query('SELECT generation FROM vinyl.mirror_state WHERE user_id=$1',[userId])).rows[0].generation;
     const snapshot={};
-    for(const section of ['collection','wishlist']) snapshot[section]=await recordRepository(client,userId,section).list();
+    for(const section of ['collection','wishlist']) snapshot[section]=(await recordRepository(client,userId,section).list()).map(({salePrice,...legacy})=>legacy); // Keep the established Sheets schema; sale price is in PG backups.
     await client.query('COMMIT');
     const verification=snapshotReport(snapshot);
     for(const section of ['collection','wishlist']) {
@@ -56,9 +59,11 @@ export async function reconcile(pool,userId,adapter,{force=false,random=Math.ran
         next_attempt_at=clock_timestamp()+($3 * interval '1 second') WHERE user_id=$1`,[userId,code,seconds]);
       return {status:'failed',error:code};
     }
+    if(error.message==='RESTORE_QUARANTINE')return {status:'quarantined'};
     throw Error('Mirror database unavailable');
   } finally {
     if(locked&&!broken)try{await client.query('SELECT pg_advisory_unlock($1)',[MIRROR_LOCK]);}catch{broken=true;}
+    if(maintenance&&!broken)try{await client.query('SELECT pg_advisory_unlock_shared(44160403)');}catch{broken=true;}
     client.removeListener('error',disconnected);
     client.release(broken);
   }

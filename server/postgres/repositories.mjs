@@ -12,10 +12,12 @@ export function recordRepository(queryable, userId, section) {
   userId = validId(userId);
   const model = models[section]; if (!model) throw Error('Invalid record section');
   const table = `vinyl.${model.table}`;
-  const columns = model.fields.map(column);
+  const storageFields = [...model.fields,'salePrice'];
+  const columns = storageFields.map(column);
   const selection = columns.join(',');
   function dto(row) {
     const record = Object.fromEntries(model.fields.map(field => [field, field === 'purchasePrice' && row.purchase_price !== null ? Number(row.purchase_price) : row[column(field)]]));
+    if(row.sale_price != null)record.salePrice=Number(row.sale_price);
     model.validate([record]); return record;
   }
   async function get(id) {
@@ -34,15 +36,15 @@ export function recordRepository(queryable, userId, section) {
       model.validate([record]);
       record = { ...record,id:validId(record.id) };
       const revision = await model.revision(record);
-      const values = model.fields.map(field => record[field]);
+      const values = storageFields.map(field => record[field] ?? null);
       const { rows } = await queryable.query(`INSERT INTO ${table} (${selection},user_id,revision) VALUES (${values.map((_,i) => '$'+(i+1)).join(',')},$${values.length+1},$${values.length+2}) RETURNING ${selection}`, [...values,userId,revision]);
       return dto(rows[0]);
     },
     async update(record, expected) {
       model.validate([record]); validRevision(expected);
       record = { ...record,id:validId(record.id) };
-      const fields = model.fields.filter(field => field !== 'id');
-      const values = fields.map(field => record[field]);
+      const fields = storageFields.filter(field => field !== 'id');
+      const values = fields.map(field => record[field] ?? null);
       const offset = values.length;
       const { rows } = await queryable.query(`UPDATE ${table} SET ${fields.map((field,i) => column(field)+'=$'+(i+1)).join(',')},
         revision=$${offset+1}, version=version+1, updated_at=clock_timestamp()

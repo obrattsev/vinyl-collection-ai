@@ -1,3 +1,4 @@
+import {requireWorkerSafety} from '../server/security/deletion-safety.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { backendConfiguration,createPool } from '../server/postgres/config.mjs';
 import { mirrorConfiguration,sheetsMirror } from '../server/mirror-sheets.mjs';
@@ -12,6 +13,8 @@ const adapter=config.fakeFile?fakeMirror(config.fakeFile):sheetsMirror(config);
 let stopped=false;const abort=new AbortController();
 for(const s of ['SIGINT','SIGTERM'])process.once(s,()=>{stopped=true;abort.abort();});
 try {
+  // Every reconcile also checks restore quarantine before touching Sheets.
+  if(mode!=='status')await requireWorkerSafety(pool,undefined,config.ownerId);
   if(mode==='enable')await enableMirror(pool,config.ownerId);
   else if(mode==='status')console.log(JSON.stringify(await mirrorStatus(pool,config.ownerId)));
   else if(mode==='reconcile'){const r=await reconcile(pool,config.ownerId,adapter,{force:true});console.log(JSON.stringify(r));if(r.status!=='verified')process.exitCode=1;}

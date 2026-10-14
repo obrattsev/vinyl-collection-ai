@@ -140,3 +140,11 @@ Streaming — динамический read-only lookup публичных Artis
 ## Stage 4B production boundary
 
 Согласованное изменение: после отдельного cutover PostgreSQL — единственный source of truth; существующие owner Sheets — одностороннее зеркало PG→Sheets. Dirty generation коммитится с mutation, Google sync асинхронный и не меняет CRUD result. Private media проверяется через DB ownership/reference. [Точный contract](stage-4b-local.md). Production cutover выполнен; [verification](stage-4b-production.md).
+
+## Дополнение local Stage 4C — 12.10.2026
+
+По запросу владельца PG DTO обеих коллекций допускает необязательное `salePrice` (JSON finite number >=0); SQL `sale_price` nullable numeric. Это цена продажи в рублях, независимая от purchasePrice. Отсутствующее/SQL NULL поле не добавляется в DTO; explicit null в PUT очищает значение, отсутствие сохраняет прежнее. Non-null salePrice участвует в revision; null/absence сохраняют прежний snapshot contract. Transfer в новую Collection переносит цену источника, выбор существующего target не изменяет его цену. Проверки дублей и Artist ASC → Year ASC не меняются.
+
+Owner всегда видит заполненное поле; guest получает его только при разрешённом public list и users.show_sale_price=true. CSV/detail используют ту же доступную проекцию. Общая настройка публичности атомарно меняет оба существующих visibility-флага; новые пользователи private. Поля purchase не становятся публичными. Старый Sheets mirror сохраняет прежний mapping без salePrice; новые поля сохраняются полным PG backup.
+
+Account deletion атомарно удаляет собственные records/auth/user и передаёт UUID/path Covers в durable cover_cleanup до удаления metadata. Файлы удаляются после commit с повтором; чужие UUID и произвольные пути не допускаются, login reservation сохраняется. Configured owner/mirror owner не удаляется этим flow. Полный contract и release limitations — [Stage 4C](stage-4c-local.md). Только локальная реализация, production не менялась.

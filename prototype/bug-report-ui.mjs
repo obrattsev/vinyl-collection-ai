@@ -1,6 +1,6 @@
 import { REPORT_MAX_LENGTH, reportLength, validReport } from '../src/bug-report.mjs';
 
-export function bindBugReport({ document, fetch, section, canOpen }) {
+export function bindBugReport({ document, fetch, section, canOpen, getCsrfToken = () => null }) {
   const get = id => document.querySelector(`#${id}`);
   const dialog = get('report-dialog'), text = get('report-text'), form = get('report-form');
   const status = get('report-status'), counter = get('report-counter'), submit = get('send-report');
@@ -30,7 +30,7 @@ export function bindBugReport({ document, fetch, section, canOpen }) {
     sending = true; text.disabled = true; get('clear-report').disabled = get('close-report').disabled = true; count();
     status.textContent = 'Отправка…';
     try {
-      const response = await fetch('/api/bug-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await fetch('/api/bug-reports', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(getCsrfToken() ? { 'X-CSRF-Token': getCsrfToken() } : {}) },
         body: JSON.stringify({ text: text.value, section }) });
       const result = await response.json();
       if (response.status === 201 && typeof result.id === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(result.id)) {

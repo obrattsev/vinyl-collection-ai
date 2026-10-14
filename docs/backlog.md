@@ -1,9 +1,11 @@
 # Backlog Vinyl Collection AI
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты.
+> Актуализация 12.10.2026: функциональность и UI Stage 4C приняты владельцем. Разрешена локальная Postbox-проверка на ранее согласованный адрес; прежний запрет реальных локальных отправок заменён этим разрешением. SMTP TLS/auth проверены; владелец подтвердил реальную доставку, регистрацию и recovery с отзывом прежней сессии. Production readiness gates остаются в отчёте. Stage 4C открыт; Git finalization и deployment запрещены. [Текущий отчёт и checkpoint](stage-4c-release-readiness.md).
+
+Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C реализуется локально, acceptance владельца ожидается; остальные задачи 4D–4F и Stage 5 не начаты.
 
 
-Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
+Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C реализуется локально, acceptance владельца ожидается; остальные задачи 4D–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
 
 ## Этап 1 — Полный локальный MVP без AI на реальных Google Sheets
 
@@ -106,19 +108,19 @@ Collection: «Показать всю коллекцию». Wish-list: «Пок�
 
 ## Этап 4 — PostgreSQL и многопользовательский режим
 
-**Статус: 4A реализован и принят владельцем по local visual acceptance.** Реализация в `feature/stage-4a-postgresql`; владелец разрешил commit/push/PR/merge без deployment. 4B production cutover выполнен; production использует PostgreSQL, 4C–4F не начаты. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
+**Статус: 4A реализован и принят владельцем по local visual acceptance.** Реализация в `feature/stage-4a-postgresql`; владелец разрешил commit/push/PR/merge без deployment. 4B production cutover выполнен; production использует PostgreSQL, 4C реализуется локально; остальные задачи 4D–4F не начаты. Приоритеты: data safety → ownership security → простой UX → минимальная эксплуатационная сложность → сохранение Stage 3 → SEO.
 
 Согласованный порядок Stage 4:
 
 1. **4A — PostgreSQL foundation — DONE.**
 2. **4B — Production migration/cutover — DONE**, принят владельцем.
-3. **4C — Registration/Auth/Recovery.**
-4. **4D — Account/settings/account lifecycle.**
+3. **4C — Registration/Auth/Recovery + согласованный кабинет/lifecycle subset (локально).**
+4. **4D — Оставшиеся profile/lifecycle и release gates.**
 5. **4D UX/Data polish** — отдельный пакет после основной реализации личного кабинета 4D.
-6. **4E — Public /u/{login} collections.**
+6. **4E — Public /{login}/collection и SSR.**
 7. **4F — SEO и release hardening.**
 
-Stage 5 AI начинается только после полного Stage 4. Новый пакет согласован как backlog; это не разрешение начинать 4C или реализацию polish.
+Stage 5 AI начинается только после полного Stage 4. Новый пакет согласован как backlog; 4C отдельно разрешён для local implementation; это не разрешение начинать реализацию polish.
 
 User и ownership закладываются до миграции. До успешного cutover 4B действуют текущие Sheets contracts; после него PostgreSQL — единственный runtime source of truth Collection/Wish-list. Существующие owner Sheets становятся односторонним PG→Sheets mirror; PostgreSQL остаётся единственным source of truth, без dual-write transaction. Bug Reports остаётся отдельной системой на Google Sheets.
 
@@ -150,37 +152,33 @@ Tests: повтор/прерывание импорта, changed manifest, missi
 
 ### 4C — Registration / Auth / Recovery
 
+**Статус: local implementation разрешена; local acceptance ожидается.** [Архитектура, benchmark, schema и acceptance](stage-4c-local.md). Commit/push/PR/merge/deploy пока не разрешены. Public registration после будущего deployment 4C остаётся disabled до lifecycle/privacy acceptance.
+
 Зависит от 4B. ФИО необязательно; Email и Login обязательны и уникальны. Регистрация: **ФИО + Email + Login → email code → проверка → Password + repeat → активный account**. Основной вход — **Login + Password**. Recovery: Email → одноразовый код → проверка → новый пароль дважды → отзыв всех sessions → повторный вход.
 
 Login: 3–30 ASCII символов, первая буква, далее `a-z`, `0-9`, `_`, `-`; trim/lowercase, case-insensitive unique. Reserved names покрывают реальные и планируемые routes (`collection`, `wishlist`, `api`, `assets`, `src`, `media`, `prototype`, `u`, `account`, `login`, `logout`, `register`, `verify`, `reset`, `forgot-password`, `admin`, `support`, `system`). Email: единая normalization policy для signup/recovery, trim, нормализованный domain, case-insensitive identity; не удалять точки/plus tags по правилам отдельных providers. Login и Email immutable в первой версии Stage 4.
 
-Современный password hash; переиспользовать versioned scrypt с обоснованными параметрами и ограничением concurrency. Сохранить Secure/HttpOnly/SameSite cookies, CSRF, Host/Origin и trusted-proxy protections; sessions привязаны к User и хранятся в PostgreSQL, поддерживают expiry/revocation. Verification/reset: bounded TTL/attempts/resend, purpose separation, безопасное hashing/HMAC codes, short-lived grants, atomic single-use и cleanup. Plaintext passwords/codes/tokens не хранить в БД/логах.
+Выбран Node built-in Argon2id: versioned hash, параметры по local benchmark, bounded concurrency. Password 12–128 Unicode code points, без trim/truncation/composition rules. Legacy scrypt остаётся только для временного owner bridge. Сохранить Secure/HttpOnly/SameSite cookies, CSRF, Host/Origin и trusted-proxy protections; sessions привязаны к User и хранятся в PostgreSQL, поддерживают expiry/revocation. Verification/reset: bounded TTL/attempts/resend, purpose separation, безопасное hashing/HMAC codes, short-lived grants, atomic single-use и cleanup. Plaintext passwords/codes/tokens не хранить в БД/логах.
 
 Rate limiting по IP и уместным account/login/email/challenge dimensions; auth/email limits переживают restart. Enumeration resistance, email bombing/reset abuse/brute force/credential stuffing/username squatting и bounded hashing/email queues входят в MVP. Маленький global limit не должен быть основным ограничением всех пользователей; общие resource/provider ceilings остаются последним предохранителем. CAPTCHA автоматически не добавлять.
 
-**Email provider НЕ выбран.** Решение принимается непосредственно перед 4C; Postbox/Resend/Postmark — кандидаты, ни один не считается утверждённым. До подключения проверить условия/квоты/доставку, DNS authentication и bounce/complaint handling.
+**Email provider выбран: Yandex Cloud Postbox, SMTP через Nodemailer.** Local/tests используют capture adapter; production запрещает capture. Настройка Cloud/DNS и реальные письма требуют отдельного production разрешения. Существующий SPF/MX Timeweb сохранять; DKIM values не придумывать. До подключения проверить квоты/доставку, DNS authentication и bounce/complaint handling.
 
 Tests: registration/login/logout, normalization/uniqueness races, expiry/replay/resend, enumeration/limits, sessions после restart, reset/revocation. Deploy допускается с registration disabled; rollback отключает новые регистрации, но сохраняет accounts/data и совместимость auth schema.
 
-### 4D — Account/settings/account lifecycle
+### 4D — Оставшиеся profile/lifecycle задачи
 
-Зависит от 4C. `/account`: просмотр Login/Email, изменение необязательного ФИО, change password с current password и двукратным новым, invalidation других sessions и rotation текущей. **Email/Login change не входит в первую версию Stage 4.**
+Уточнение владельца 12.10.2026 переносит в текущую local 4C: `/auth` как кабинет, общий checkbox публичности двух списков, salePrice и его публичность, change password с current password/session rotation, hard delete с повторным паролем/confirmation и durable Cover cleanup. Реализация локальная; финальная acceptance и Postbox остаются открыты. [Текущий contract и матрица](stage-4c-local.md).
 
-Два независимых переключателя Public Collection / Public Wish-list. **Для новых аккаунтов оба private по умолчанию.** Email/ФИО не публикуются автоматически. Первый мигрированный пользователь сохраняет оба раздела public.
-
-Account deletion: **hard delete без восстановления; удалённый login не переиспользуется**. Явное подтверждение и повторный пароль. Немедленный revoke sessions и публичного доступа; удаление Collection/Wish-list/Favorites/auth artifacts, durable очередь физического удаления Covers с retry/orphan cleanup. Минимальный login tombstone без профиля/коллекции исключает повторное использование. Backup retention ограничивает срок существования архивных копий; restore должен повторно применить журнал удалений до открытия сервиса. Bug Reports остаются отдельными анонимными сообщениями без автоматической привязки account.
-
-Tests: profile/privacy, reauthentication, password/session lifecycle, deletion/cleanup races и restart, запрет восстановления удалённых аккаунтов через обычный restore. Deploy возможен для первого пользователя при закрытой регистрации; code rollback не восстанавливает удалённые данные.
+Удалённый login не переиспользуется; Email/Login immutable. Новые accounts private, прежний owner public. Configured/mirror owner защищён от удаления. Остаток 4D: редактирование необязательного ФИО и эксплуатационное завершение lifecycle/restore. Перед открытием production registration необходима процедура применения удалений и login reservations при restore старого backup, чтобы не восстановить удалённые accounts. Backup retention продолжает действовать. Bug Reports остаются отдельным storage без account cascade. Эти оставшиеся работы не начаты в данной задаче.
 
 ### 4D UX/Data polish — отдельный пакет после личного кабинета
 
-**Статус: согласован, не начат.** Выполняется после основной реализации 4D Account/settings/account lifecycle и до 4E Public Collections. Только точечные изменения принятого Stage 3 UI, без redesign и AI.
+**Статус: согласован, не начат.** Выполняется после acceptance кабинета/lifecycle и оставшихся release gates и до 4E Public Collections. Только точечные изменения принятого Stage 3 UI, без redesign и AI.
 
-#### 1. Цена продажи и user-level visibility
+#### 1. Цена продажи и user-level visibility — перенесено в local 4C
 
-Добавить только в Collection необязательное nullable поле **«Цена продажи (руб.)»**; в Wish-list его нет. Формат и validation аналогичны существующей цене покупки; отдельный helper не нужен. В desktop Owner расположить рядом с ценой покупки, в mobile detail — среди соответствующих полей записи. Включить в owner CSV.
-
-В личном кабинете добавить user-level настройку **«Показывать цену продажи»**, default **false**; это не свойство пластинки. При false поле полностью отсутствует в Guest projection/API. При true оно доступно Guest и отображается в публичной Collection desktop/mobile. Visibility обеспечивается server-side projection, не CSS. Изменение настройки не изменяет сами Collection records. Цель — возможность использовать публичную коллекцию как простой прайс-лист пластинок на продажу наряду с демонстрацией друзьям.
+По уточнению 12.10.2026 реализовано необязательное `salePrice` в Collection и Wish-list, независимое от purchasePrice. User-level checkbox default false определяет передачу гостям; owner видит заполненное поле всегда. UI/CSV используют доступную проекцию. Это заменяет прежний план только для Collection. Остальные пункты polish ниже не начаты.
 
 #### 2. Обложка в Add flow
 
@@ -222,15 +220,15 @@ Tests: profile/privacy, reauthentication, password/session lifecycle, deletion/c
 
 ### 4E — Public pages и SSR
 
-Зависит от 4B–4D, включая завершение отдельного 4D UX/Data polish. Канонические public URLs: **`/u/{login}/collection`**, **`/u/{login}/wishlist`**; **`/u/{login}` → Collection**. Management URLs: `/collection`, `/wishlist`, `/account`. Старые ссылки должны иметь контролируемую совместимость без выдачи чужих private данных; session-dependent redirects не кешируются как постоянные.
+Зависит от 4B–4D, включая завершение отдельного 4D UX/Data polish. Канонические public URLs по уточнению владельца 11.10.2026: **`/{login}/collection`** (Collection), **`/{login}/wishlist`**. Прежние `/u/{login}/…` сохраняются как совместимые redirects. Кабинет: `/auth`. `/collection`, `/wishlist` остаются legacy compatibility; `/{login}` — redirect в Collection. Старые ссылки должны иметь контролируемую совместимость без выдачи чужих private данных; session-dependent redirects не кешируются как постоянные.
 
-Public API — отдельный allowlist-контракт, независимый от наличия visitor session. На своей странице authenticated owner получает management controls через private API; пользователь A на странице B остаётся public visitor. Сохранить текущие девять public metadata fields (включая note), cover presentation и favorite только Collection; не публиковать record UUID, purchase fields, storeUrl, Email/ФИО. Private разделы/media не выдаются гостю. Цена продажи Collection добавляется в public allowlist только при user-level «Показывать цену продажи» = true; при false поле отсутствует в API и SSR projection, согласно 4D UX/Data polish.
+Public API — отдельный allowlist-контракт, независимый от наличия visitor session. На своей странице authenticated owner получает management controls через private API; пользователь A на странице B остаётся public visitor. Сохранить текущие девять public metadata fields (включая note), cover presentation и favorite только Collection; не публиковать record UUID, purchase fields, storeUrl, Email/ФИО. Private разделы/media не выдаются гостю. Цена продажи обоих списков добавляется в public allowlist только при user-level «Показывать цену продажи» = true; при false поле отсутствует в API и SSR projection, согласно текущему local 4C contract.
 
 **Public Collection индексируется и сразу содержит каталог в initial server-rendered HTML.** Небольшой renderer в существующем Node stack, без большого frontend framework migration. Существующие table/mobile UI, search/sort, scrollbar, Covers, Favorite, Transfer, Streaming, Quote, CSV и Bug Report — regression contract; общего redesign нет. Обоснованное изменение — каталог при открытии public Collection; management pages сохраняют прежнюю отложенную загрузку. SSR использует только public projection и escaping.
 
 Public Wish-list доступен по разрешению владельца, но **noindex и вне sitemap в первой версии**. Отдельные страницы пластинок не создаются. Daily Quote остаётся curated, без AI и анализа коллекции пользователя; Streaming остаётся общей read-only функцией с automatic RU → US, ambiguity handling, player lifecycle/cache/limits и прежним UX. CSV использует только доступную проекцию.
 
-Tests: A/B/Guest, четыре сочетания visibility, public/private responses/media, ownership controls, raw HTML без JS, stale requests/logout/смена пользователя, desktop/mobile parity. Public registration открывается только после совместной acceptance auth/recovery, isolation, lifecycle/deletion и privacy; deployment 4C сам по себе её не открывает. Rollback — только к multi-user-safe PostgreSQL release, не к Stage 3 runtime.
+Tests: A/B/Guest, общий переключатель visibility обоих списков, public/private responses/media, ownership controls, raw HTML без JS, stale requests/logout/смена пользователя, desktop/mobile parity. Public registration открывается только после совместной acceptance auth/recovery, isolation, lifecycle/deletion и privacy; deployment 4C сам по себе её не открывает. Rollback — только к multi-user-safe PostgreSQL release, не к Stage 3 runtime.
 
 ### 4F — SEO и release hardening
 
@@ -319,3 +317,7 @@ Stage 4B local phase: [implementation/acceptance](stage-4b-local.md), [gated pro
 Local acceptance 4B успешно принята владельцем. Git finalization и production phase разрешены с последовательными verification gates; cutover выполнен 04.10.2026; verification и cleanup пройдены, freeze снят. Backup decision: Timeweb daily VPS disk backup + проверенные logical PG/Covers backups на VPS (7 daily + 4 weekly) + one-way owner Sheets mirror. S3/SFTP и новые providers/dependencies не добавлять. Timeweb daily VPS backup подтверждён владельцем; timestamp последнего provider backup средствами deployment environment не подтверждён. Более ранние требования отдельного offsite provider и ожидания local acceptance выше заменены этим решением. Freeze только непосредственно перед cutover, снять после verification.
 
 Фактический release, verification, backup/monitoring и ограничения: [production report 4B](stage-4b-production.md).
+
+### Stage 4C — актуальный local scope 12.10.2026
+
+Canonical `/{login}/collection` и `/{login}/wishlist`, root landing, `/auth` guest/account. Старые короткие и `/u/…` ссылки обслуживает один resolver. Общая публичность двух списков заменяет раннее решение о независимых переключателях. Кабинет, salePrice, change-password и fixture-safe deletion реализованы локально по прямому разрешению владельца. Production остаётся 4B, реальная Postbox delivery не включалась. [Итоговый local report / acceptance matrix](stage-4c-local.md). Stage 4C не закрыт; commit/push/PR/merge/deploy запрещены до отдельного acceptance.

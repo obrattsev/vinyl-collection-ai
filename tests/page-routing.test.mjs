@@ -8,10 +8,10 @@ import { record } from './fixtures/collection.mjs';
 import { wish } from './fixtures/wishlist.mjs';
 import { publicRecords } from '../src/public-record.mjs';
 
-async function start(t) {
+async function start(t, servicesForSession) {
   const origin = 'https://vinyl-collection.ru';
   const server = createApp({ getCollection: async () => [record], getWishlist: async () => [wish] },
-    { auth: testAuth({ production: true, origin }) });
+    { auth: testAuth({ production: true, origin }), servicesForSession });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -26,10 +26,10 @@ async function start(t) {
   }) };
 }
 
-test('root, trailing slashes and legacy page URLs permanently redirect without losing query', async t => {
+test('trailing slashes and legacy page URLs permanently redirect without losing query', async t => {
   const app = await start(t);
   for (const [path, canonical] of [
-    ['/', '/collection'], ['/collection/', '/collection'], ['/collection///', '/collection'],
+    ['/collection/', '/collection'], ['/collection///', '/collection'],
     ['/wishlist/', '/wishlist'], ['/wishlist//', '/wishlist'],
     ['/prototype', '/collection'], ['/prototype/', '/collection'],
     ['/prototype/index.html', '/collection'], ['/prototype/index.html/', '/collection'],
@@ -42,6 +42,31 @@ test('root, trailing slashes and legacy page URLs permanently redirect without l
       assert.equal(await res.text(), '');
     }
   }
+});
+
+test('root serves a focused landing page instead of redirecting into a collection', async t => {
+  const app = await start(t);
+  const res = await app.call('/', { redirect: 'manual' });
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  assert.match(html, /Vinyl Collection AI/);
+  assert.match(html, /href="\/auth\?mode=login"/);
+  assert.match(html, /href="\/auth\?mode=registration"/);
+  assert.doesNotMatch(html, /Поиск в коллекции|Добавить пластинку|Сообщить об ошибке/);
+});
+
+test('auth entry keeps legacy owner rehearsal off the ordinary login screen', async t => {
+  const app = await start(t);
+  const html = await (await app.call('/auth')).text();
+  assert.ok(html.indexOf('id="email-label"') < html.indexOf('id="login-label"'));
+  assert.ok(html.indexOf('id="login-label"') < html.indexOf('id="name-label"'));
+  assert.match(html, /id="password-error"/);
+  assert.doesNotMatch(html, /От 12 до 128 символов\. Можно использовать пробелы/);
+  assert.doesNotMatch(html, /id="show-legacy"|Прежний вход владельца/);
+  const script = await (await app.call('/assets/auth-ui.mjs')).text();
+  assert.match(script, /mode==='legacy-owner'&&config\.legacyEnabled/);
+  assert.match(script, /stage==='password'&&\[\.\.\.data\.password\]\.length<12/);
+  assert.match(script, /stage==='forgot'\?'Восстановить пароль'/);
 });
 
 test('direct navigation, refresh and section links resolve to canonical documents', async t => {
@@ -111,4 +136,29 @@ test('canonical pages preserve production guest, owner login, API projections an
   assert.equal((await app.call('/api/auth/logout', { method: 'POST', headers })).status, 200);
   assert.deepEqual(await (await app.call('/api/auth/session', { headers })).json(), { role: 'guest' });
   assert.deepEqual(await (await app.call('/api/collection', { headers })).json(), publicRecords([record]));
+});
+
+
+test('private Collection and Wishlist link directly to login and preserve direct registration', async t => {
+  const servicesForSession = Object.assign(() => ({}), {
+    profile: async () => { throw Object.assign(new Error('COLLECTION_PRIVATE'), { status: 403 }); }
+  });
+  const app = await start(t, servicesForSession);
+  for (const section of ['collection', 'wishlist']) {
+    const response = await app.call(`/alice/${section}`);
+    assert.equal(response.status, 403);
+    const html = await response.text();
+    assert.match(html, /href="\/auth\?mode=login"/);
+    assert.match(html, /href="\/auth\?mode=registration"/);
+    assert.doesNotMatch(html, /href="\/auth"/);
+  }
+});
+
+test('landing has five local sleeve assets, four benefits and direct auth links',async t=>{
+ const app=await start(t);const html=await(await app.call('/')).text();
+ assert.match(html,/Создать коллекцию/);assert.match(html,/У каждой пластинки своя история/);
+ assert.equal((html.match(/class="home-benefit"/g)||[]).length,4);
+ const sources=[...html.matchAll(/src="(\/assets\/landing\/[^\"]+)"/g)].map(x=>x[1]);assert.equal(sources.length,5);
+ for(const src of sources){const res=await app.call(src);assert.equal(res.status,200);assert.equal(res.headers.get('content-type'),'image/webp');assert.ok((await res.arrayBuffer()).byteLength<300000);}
+ assert.doesNotMatch(html,/\/api\/|<script/);
 });

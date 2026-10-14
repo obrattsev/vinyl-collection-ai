@@ -7,10 +7,20 @@ import { readFile } from 'node:fs/promises';
 import { CollectionDataError, validateCollection } from '../src/collection-record.mjs';
 import { CollectionSourceError } from './google-sheets-collection.mjs';
 import { COVER_MAX_BYTES } from './cover-storage.mjs';
+import { RESERVED_LOGINS } from './security/identity.mjs';
 import { UUID } from '../src/base-record.mjs';
 
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
+  ['/assets/quote-background.webp', ['../prototype/assets/quote-background.webp', 'image/webp']],
+  ['/assets/landing/velvet.webp', ['../prototype/assets/landing/velvet.webp', 'image/webp']],
+  ['/assets/landing/pink-floyd.webp', ['../prototype/assets/landing/pink-floyd.webp', 'image/webp']],
+  ['/assets/landing/bowie.webp', ['../prototype/assets/landing/bowie.webp', 'image/webp']],
+  ['/assets/landing/beatles.webp', ['../prototype/assets/landing/beatles.webp', 'image/webp']],
+  ['/assets/landing/stones.webp', ['../prototype/assets/landing/stones.webp', 'image/webp']],
+  ['/', ['../prototype/landing.html', 'text/html; charset=utf-8']],
+  ['/auth', ['../prototype/auth.html', 'text/html; charset=utf-8']],
+  ['/assets/auth-ui.mjs', ['../prototype/auth-ui.mjs', 'text/javascript; charset=utf-8']],
   ['/src/streaming.mjs', ['../src/streaming.mjs', 'text/javascript; charset=utf-8']],
   ['/assets/streaming-ui.mjs', ['../prototype/streaming-ui.mjs', 'text/javascript; charset=utf-8']],
   ['/src/cover-record.mjs', ['../src/cover-record.mjs', 'text/javascript; charset=utf-8']],
@@ -38,7 +48,6 @@ const clientFiles = new Map([
 
 // Only known page aliases redirect; unknown paths remain 404.
 const pageAliases = new Map([
-  ['', '/collection'],
   ['/collection', '/collection'],
   ['/wishlist', '/wishlist'],
   ['/prototype', '/collection'],
@@ -51,7 +60,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite, lookupStreaming, authorizeList, authorizeCover }, { auth, quoteSource } = {}) {
+export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite, lookupStreaming, authorizeList, authorizeCover }, { auth, quoteSource, servicesForSession } = {}) {
   let coverUploading = false;
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -60,12 +69,54 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
     res.setHeader('Referrer-Policy', 'same-origin');
     const path = req.url.split('?')[0];
     try {
-      const session = auth?.session(req);
+      // Gate ALL routes, including public pages, Covers, CSV and auth.
+      await auth?.ready?.();
+      const session = await auth?.session(req);
       const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
       if (unsafe) {
         if (!auth) throw new OperationError(401, 'AUTH_REQUIRED');
         auth.checkOrigin(req);
       }
+      if (auth?.handle && path.startsWith('/api/auth/')) {
+        let body={};
+        if(unsafe){req.setTimeout(5000,()=>req.destroy());try{body=await readBody(req,8192);}finally{req.setTimeout(0);}}
+        await auth.handle(req,res,path,body,session); return;
+      }
+      const shortProfile = path.match(/^\/([a-zA-Z][a-zA-Z0-9_-]{2,29})(?:\/(collection|wishlist))?\/?$/);
+      const shortRoute = shortProfile && !RESERVED_LOGINS.has(shortProfile[1].toLowerCase()) ? [shortProfile[0],undefined,shortProfile[1],shortProfile[2]] : null;
+      const profileRoute = shortRoute || path.match(/^\/(api\/)?u\/([a-zA-Z][a-zA-Z0-9_-]{2,29})(?:\/(collection|wishlist))?\/?$/);
+      if (profileRoute && servicesForSession?.profile) {
+        if (!['GET','HEAD'].includes(req.method)) { res.setHeader('Allow','GET, HEAD'); throw new OperationError(405,'METHOD_NOT_ALLOWED'); }
+        auth?.limit(req,'read',res);
+        const [,api,login,requestedSection] = profileRoute, section = requestedSection || 'collection';
+        let profile;
+        try { profile = await servicesForSession.profile(login,section,session); }
+        catch (error) {
+          if (api || !['NOT_FOUND','COLLECTION_PRIVATE'].includes(error.message)) throw error;
+          const title = error.message === 'COLLECTION_PRIVATE' ? 'Коллекция закрыта' : 'Пользователь не найден';
+          const description = error.message === 'COLLECTION_PRIVATE' ? 'Этот список доступен только владельцу. Войдите в свой аккаунт.' : 'Проверьте адрес страницы пользователя.';
+          const content = (await readFile(new URL('../prototype/profile-message.html',import.meta.url),'utf8')).replaceAll('{{title}}',title).replace('{{description}}',description);
+          res.setHeader('X-Robots-Tag','noindex');
+          res.writeHead(error.status,{'Content-Type':'text/html; charset=utf-8'});res.end(req.method === 'HEAD' ? undefined : content);return;
+        }
+        const canonical = api ? `/api/u/${profile.login}/${section}` : `/${profile.login}/${section}`;
+        if (path !== canonical) { res.writeHead(302,{Location:canonical});res.end();return; }
+        res.setHeader('X-Access-Role',profile.owner ? 'owner' : 'guest');
+        // Full indexing/SSR belongs to 4E; these local routes are not SEO release pages.
+        res.setHeader('X-Robots-Tag','noindex');
+        if (api) {
+          const records = (section === 'wishlist' ? validateWishlist : validateCollection)(await profile.records());
+          if (req.method === 'HEAD') {res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});res.end();return;}
+          json(res,200,profile.owner ? records : publicRecords(records,profile.showSalePrice));return;
+        }
+        const file = clientFiles.get('/'+section);
+        const content = (await readFile(new URL(file[0],import.meta.url),'utf8'))
+          .replace('<body',`<body data-profile-login="${profile.login}"`)
+          .replaceAll('href="/collection"',`href="/${profile.login}/collection"`)
+          .replaceAll('href="/wishlist"',`href="/${profile.login}/wishlist"`);
+        res.writeHead(200,{'Content-Type':file[1]});res.end(req.method === 'HEAD' ? undefined : content);return;
+      }
+      const scoped = servicesForSession ? await servicesForSession(session) : null;
       if (path.startsWith('/api/auth/')) {
         if (!auth) throw new OperationError(503, 'AUTH_UNAVAILABLE');
         if (path === '/api/auth/session' && req.method === 'GET') {
@@ -87,6 +138,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       }
       if (path === '/api/bug-reports') {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
+        auth.requireOwner(req, session);
         auth.limit(req, 'report', res);
         if (!createReport) throw new OperationError(503, 'REPORT_NOT_CONFIGURED');
         json(res, 201, await createReport(await readBody(req, 16384))); return;
@@ -103,9 +155,13 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         json(res, 200, await lookupStreaming(input));
         return;
       }
+      const requestServices = scoped || { getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, coverStorage, changeCover, changeFavorite, authorizeList, authorizeCover };
+      {
+      const { getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, coverStorage, changeCover, changeFavorite, authorizeList, authorizeCover } = requestServices;
       if (unsafe) auth.requireOwner(req, session);
       if (req.method === 'GET' && path.startsWith('/api/') && !session) auth?.limit(req, 'read', res);
-      const visible = records => session ? records : publicRecords(records);
+      const showSalePrice = !session && path.startsWith('/api/') ? await requestServices.publicSalePrice?.() : false;
+      const visible = records => session ? records : publicRecords(records,showSalePrice);
       res.setHeader('X-Access-Role', session ? 'owner' : 'guest');
       const media = path.match(/^\/media\/covers\/([^/]+)\/(thumb\.webp|image\.webp)$/);
       if (media && ['GET', 'HEAD'].includes(req.method)) {
@@ -169,6 +225,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         if (req.method !== 'DELETE') { res.setHeader('Allow', 'DELETE, PUT'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return; }
         json(res, 200, await deleteRecord(path.slice('/api/collection/'.length), req.headers['if-match'])); return;
       }
+      }
       const canonicalPage = pageAliases.get(path.replace(/\/+$/, ''));
       if (canonicalPage && canonicalPage !== path && (req.method === 'GET' || req.method === 'HEAD')) {
         res.writeHead(308, { Location: canonicalPage + req.url.slice(path.length) });
@@ -190,6 +247,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) {
       if (error instanceof OperationError) { if (error.details?.retryAfter) res.setHeader('Retry-After', String(error.details.retryAfter)); json(res, error.status, { error: error.message, ...error.details }); return; }
+      if (error?.code === 'RESOURCE_BUSY') { json(res,503,{error:'AUTH_BUSY'}); return; }
       const code = error instanceof WishlistDataError ? 'WISHLIST_DATA_INVALID'
         : error instanceof WishlistSourceError ? 'WISHLIST_SOURCE_UNAVAILABLE'
         : error instanceof CollectionDataError ? 'COLLECTION_DATA_INVALID'

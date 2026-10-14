@@ -47,7 +47,7 @@ function snapshot(overrides={}) {
  return {importKey:`fixture_${tag}`,user:{id:randomUUID(),login:`imp_${tag}`,email:`${tag}@example.test`},
    collection:[{...record,id:randomUUID()}],wishlist:[{...wish,id:randomUUID()}],covers:[],...overrides};
 }
-before(async () => { await requireTestDatabase(pool); await migrate(pool); });
+before(async () => { await requireTestDatabase(pool); await migrate(pool); await pool.query('TRUNCATE vinyl.restore_epoch CASCADE'); });
 after(async () => { await pool.end(); });
 
 test('configuration defaults to Sheets; production and remote PG refused', () => {
@@ -63,7 +63,7 @@ test('safety refuses missing/wrong token and acceptance DB before mutation', asy
 });
 test('migrations repeat concurrently without duplicate application',async()=>{
  await Promise.all([migrate(pool),migrate(pool)]);
- assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'2');
+ assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'5');
 });
 test('migration checksum mismatch and failed DDL never become successful',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'vinyl-migration-test-'));const url=pathToFileURL(dir+'/');
@@ -73,10 +73,13 @@ test('migration checksum mismatch and failed DDL never become successful',async(
   await assert.rejects(migrate(pool,url),/checksum/);
   await writeFile(join(dir,'001_data_foundation.sql'),first);
   await writeFile(join(dir,'002_cutover_mirror.sql'),await readFile(new URL('002_cutover_mirror.sql',migrationDirectory),'utf8'));
-  await writeFile(join(dir,'003_failure.sql'),'CREATE TABLE vinyl.must_rollback(id int); SELECT 1/0;');
+  await writeFile(join(dir,'003_auth_foundation.sql'),await readFile(new URL('003_auth_foundation.sql',migrationDirectory),'utf8'));
+  await writeFile(join(dir,'004_account_lifecycle.sql'),await readFile(new URL('004_account_lifecycle.sql',migrationDirectory),'utf8'));
+  await writeFile(join(dir,'005_restore_recovery.sql'),await readFile(new URL('005_restore_recovery.sql',migrationDirectory),'utf8'));
+  await writeFile(join(dir,'006_failure.sql'),'CREATE TABLE vinyl.must_rollback(id int); SELECT 1/0;');
   await assert.rejects(migrate(pool,url));
   assert.equal((await pool.query("SELECT to_regclass('vinyl.must_rollback') AS name")).rows[0].name,null);
-  assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'2');
+  assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'5');
  } finally {await rm(dir,{recursive:true,force:true});}
 });
 test('normalized identity uniqueness is enforced under races; defaults private',async()=>{
@@ -427,12 +430,23 @@ test('4B failed business transaction rolls back both data and dirty generation',
  await assert.rejects(ownerTransaction(pool,u.id,async c=>{await recordRepository(c,u.id,'collection').insert({...record,id:randomUUID()});throw Error('failure after write');}));
  assert.equal((await mirrorStatus(pool,u.id)).generation,'1');assert.deepEqual(await recordRepository(pool,u.id,'collection').list(),[]);
 });
-test('4B fresh CLI process observes and reconciles durable pending state without Google',async()=>{
+test('fresh CLI refuses restored owner without recovery before any Sheets writes',async()=>{
  const {execFile}=await import('node:child_process');const {promisify}=await import('node:util');const exec=promisify(execFile);
  const {u,s}=await context();await enableMirror(pool,u.id);await s.createRecord(draft(record));const dir=await mkdtemp(join(tmpdir(),'vinyl-worker-'));const file=join(dir,'mirror.json');await writeFile(file,JSON.stringify({collection:[],wishlist:[]}));
+ const {quarantineRestoredAuth}=await import('../../server/security/deletion-safety.mjs');
+ await quarantineRestoredAuth(pool);
  const env={PATH:process.env.PATH,NODE_ENV:'test',DATA_BACKEND:'postgres',DATABASE_URL:process.env.DATABASE_URL,PG_OWNER_ID:u.id,MIRROR_ENABLED:'true',MIRROR_OWNER_ID:u.id,MIRROR_FAKE_FILE:file};
  try{const before=await exec(process.execPath,['scripts/pg-mirror.mjs','status'],{env});assert.equal(JSON.parse(before.stdout).status,'pending');
- const result=await exec(process.execPath,['scripts/pg-mirror.mjs','reconcile'],{env});assert.equal(JSON.parse(result.stdout).status,'verified');assert.equal(JSON.parse(await readFile(file,'utf8')).collection.length,1);
+ await assert.rejects(exec(process.execPath,['scripts/pg-mirror.mjs','reconcile'],{env}),error=>error.stderr.includes('RESTORE_QUARANTINE'));
+ assert.equal(JSON.parse(await readFile(file,'utf8')).collection.length,0);assert.equal((await mirrorStatus(pool,u.id)).status,'pending');
+ const {ledgerFixture}=await import('../fixtures/deletion-ledger.mjs');
+ const {createDeletionSafety,requireWorkerSafety}=await import('../../server/security/deletion-safety.mjs');
+ const {fakeMirror}=await import('../../server/mirror-fake.mjs');
+ await assert.rejects(requireWorkerSafety(pool,undefined,u.id),/RESTORE_QUARANTINE/);
+ await pool.query("INSERT INTO vinyl.user_auth(user_id,status,password_hash,email_verified_at) VALUES($1,'active','synthetic-not-a-password',clock_timestamp())",[u.id]);
+ await requireWorkerSafety(pool,undefined,u.id);
+ assert.equal((await reconcile(pool,u.id,fakeMirror(file),{force:true})).status,'verified');
+ assert.equal(JSON.parse(await readFile(file,'utf8')).collection.length,1);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 test('4B least-privilege runtime grants support owner row lock and mutations without DDL',async()=>{

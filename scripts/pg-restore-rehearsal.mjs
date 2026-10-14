@@ -1,3 +1,6 @@
+import {migrate} from '../server/postgres/migrations.mjs';
+import {quarantineRestoredAuth} from '../server/security/deletion-safety.mjs';
+import {verifyAuthRestore} from '../server/security/restore-verification.mjs';
 import {readFile,lstat,mkdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {execFile} from 'node:child_process';
@@ -26,5 +29,10 @@ try {
   await pgCommand(process.env.PG_BIN,'pg_restore',url,['--exit-on-error','--single-transaction','--no-owner','--no-privileges','--dbname',new URL(url).pathname.slice(1),join(directory,'database.dump')]);
   const snapshot={};for(const section of ['collection','wishlist'])snapshot[section]=await recordRepository(pool,manifest.userId,section).list();
   if(stateHash(snapshotReport(snapshot))!==stateHash(manifest.verification))throw Error('Restored data differs');
-  console.log(JSON.stringify({restored:true,verification:snapshotReport(snapshot),coverFiles:manifest.coverFiles.length}));
+  await migrate(pool);
+  const auth=await verifyAuthRestore(pool);
+  // A rehearsal must never expose restored live sessions or verification capabilities.
+  // No external deletion history: quarantine does not reconstruct past deletions.
+  await quarantineRestoredAuth(pool);
+  console.log(JSON.stringify({restored:true,auth,verification:snapshotReport(snapshot),coverFiles:manifest.coverFiles.length}));
 }finally{await pool.end();}

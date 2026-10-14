@@ -108,11 +108,11 @@ test('secrets, server files, local JSON and encoded/traversal paths are not serv
   }
 });
 
-test('UI has no fixture fallback and root redirects to the canonical collection', async t => {
+test('UI has no fixture fallback and root serves the public landing page', async t => {
   const url = await start(t);
   const response = await fetch(url, {redirect:'manual'});
-  assert.equal(response.status, 308);
-  assert.equal(response.headers.get('location'), '/collection');
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /Vinyl Collection AI/);
   const js = await (await fetch(`${url}/assets/app.js`)).text();
   assert.ok(!js.includes('collection.json'));
   assert.ok(js.includes('Ошибка загрузки данных. Не удалось загрузить коллекцию.'));

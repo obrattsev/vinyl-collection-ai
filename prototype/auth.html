@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Личный кабинет — Vinyl Collection</title><link rel="stylesheet" href="/assets/styles.css"><script type="module" src="/assets/auth-ui.mjs"></script></head>
+<body><main class="auth-page"><a class="button-secondary auth-back" id="back-collection" href="/" hidden>Назад в коллекцию</a><h1 id="auth-title">Вход</h1>
+<p id="auth-message" role="status" aria-live="polite"></p>
+<div id="welcome-actions" class="landing-actions" hidden><button id="start-login" class="landing-primary" type="button">Вход</button><button id="start-register" class="landing-secondary" type="button">Регистрация</button></div>
+<form id="auth-flow">
+<label id="email-label" hidden>Email<input name="email" type="email" autocomplete="email" maxlength="254"></label>
+<label id="login-label">Логин<input name="login" autocomplete="username" maxlength="30" autocapitalize="none" spellcheck="false"></label>
+<label id="name-label" hidden>ФИО (необязательно)<input name="fullName" autocomplete="name" maxlength="200"></label>
+<label id="code-label" hidden>Код из письма<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"></label>
+<label id="password-label">Пароль<input name="password" type="password" autocomplete="current-password" maxlength="256"></label>
+<label id="repeat-label" hidden>Повторите пароль<input name="repeat" type="password" autocomplete="new-password" maxlength="256"></label>
+<p id="password-error" role="alert" hidden>Пароль должен содержать не менее 12 символов.</p>
+<button id="auth-submit" type="submit">Войти</button></form>
+<div class="auth-links"><button id="show-register" class="auth-primary" type="button" hidden>Зарегистрироваться</button><button id="show-forgot" class="button-secondary" type="button">Забыли пароль?</button><button id="show-login" class="button-secondary" type="button" hidden>Вернуться ко входу</button><button id="resend" class="button-secondary" type="button" hidden>Отправить код снова</button><button id="activate-owner" type="button" hidden>Активировать новый вход</button></div>
+<section id="account-settings" hidden aria-label="Настройки аккаунта">
+<p id="account-login"></p>
+<label class="account-toggle"><input id="public-collection" type="checkbox">Публичная коллекция</label>
+<label class="account-toggle"><input id="show-sale-price" type="checkbox">Показывать цену продажи</label>
+<div class="auth-links"><button id="change-password" type="button">Сменить пароль</button><button id="delete-account" class="button-danger" type="button">Удалить аккаунт и коллекцию</button><button id="account-logout" class="button-secondary" type="button">Выйти</button></div>
+<p id="password-unavailable" hidden>Смена пароля станет доступна после завершения настройки входа владельца.</p>
+<p id="account-protected" hidden>Удаление этого аккаунта пока недоступно.</p>
+</section>
+<form id="account-password" hidden>
+<h2>Сменить пароль</h2>
+<label>Текущий пароль<input name="currentPassword" type="password" autocomplete="current-password" required></label>
+<label>Новый пароль<input name="password" type="password" autocomplete="new-password" required></label>
+<label>Повтор нового пароля<input name="repeat" type="password" autocomplete="new-password" required></label>
+<button type="submit">Сохранить</button><button class="button-secondary account-cancel" type="button">Отмена</button>
+</form>
+<form id="account-delete" hidden>
+<h2>Удалить аккаунт и коллекцию</h2>
+<p>Удаление необратимо. Будут удалены аккаунт и коллекция. Восстановить данные нельзя. Логин останется зарезервированным.</p>
+<label>Текущий пароль<input name="password" type="password" autocomplete="current-password" required></label>
+<button class="button-danger" type="submit">Удалить навсегда</button><button class="button-secondary account-cancel" type="button">Отмена</button>
+</form>
+</main></body></html>

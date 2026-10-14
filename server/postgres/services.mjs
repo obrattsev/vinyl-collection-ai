@@ -7,10 +7,10 @@ import { OperationError, validateInput } from '../record-operations.mjs';
 import { recordRepository, coverRepository, ownerTransaction, validId, validRevision } from './repositories.mjs';
 import { ownerBoundary } from './boundary.mjs';
 
-export function createPostgresServices(pool, userId, covers = null) {
+export function createPostgresServices(pool, userId, covers = null, authorizeMutation = null) {
   userId = validId(userId);
   const repo = (client, section) => recordRepository(client, userId, section);
-  const write = work => ownerTransaction(pool, userId, work);
+  const write = work => ownerTransaction(pool, userId, async client => { await authorizeMutation?.(client); return work(client); });
   async function confirmed(client, section, id, expected) {
     validId(id); validRevision(expected);
     const record = await repo(client, section).get(id);
@@ -73,7 +73,7 @@ export function createPostgresServices(pool, userId, covers = null) {
       } else {
         const purchase = ['purchaseDate','purchaseStore','purchasePrice'];
         if (Object.keys(input).length !== 3 || !purchase.every(key => Object.hasOwn(input,key))) throw new OperationError(400,'INVALID_RECORD');
-        const candidate = { ...Object.fromEntries(BASE_FIELDS.filter(key => key !== 'id').map(key => [key,source[key]])),...input };
+        const candidate = { ...Object.fromEntries(BASE_FIELDS.filter(key => key !== 'id').map(key => [key,source[key]])),...input,...(source.salePrice != null ? {salePrice:source.salePrice} : {}) };
         validateInput(candidate,validateDraft);
         const matches = (await repo(client,'collection').list()).filter(record => isPotentialDuplicate(candidate,record));
         if (matches.length) throw new OperationError(409,'POTENTIAL_DUPLICATE',{ records:matches });

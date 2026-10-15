@@ -1,5 +1,9 @@
 # AI-интерфейс — этап 5
 
+> Актуализация 15.10.2026: Stage 4C — DONE / PRODUCTION GO. Первоначальный выпуск `40ab34a19cd5d93d1c635ce1ee766011fc321e31`, затем routing/security fix PR #31; текущий production `f593b3f6e86d81f53fd4e490f87bf8c39b136ebc`. [Production report](stage-4c-production.md). Roadmap: 4A/4B/4C DONE → 4D UX / DATA POLISH NEXT → 4E PUBLIC PAGES / SEO PLANNED → 5A → 5B → 5C → 5D. Старые статусы и планы ниже — исторические; при расхождении действуют эта запись и основной backlog. Разрешены только локальные изменения документации; код 4D, commit/push/PR/merge и production operations ожидают отдельных разрешений.
+
+> Исторические общие AI-сценарии ниже — superseded/deferred там, где выходят за утверждённые 5A cover search → 5B lyrics quotes → 5C photo Add → 5D structured natural-language search. Активный scope и критерии находятся только в [backlog](backlog.md). Универсальный чат и расширенная нормализация не обязательны.
+
 Статус: этап 5 не начат; направление согласовано, подробная спецификация и провайдер требуют согласования. Не требования этапов 1–4. Этап 4 — PostgreSQL и многопользовательский режим.
 
 Этап 1 — завершённый локальный MVP с обычным веб-интерфейсом и реальными Google Sheets. Этап 2 — VPS, аутентификация owner и публичный read-only просмотр collection/wish-list; публичная доступность запрещена до защиты всех изменяющих API аутентификацией owner. Этап 3 — развитие продукта без AI. Полный roadmap — в [backlog](backlog.md).

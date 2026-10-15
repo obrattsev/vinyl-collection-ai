@@ -108,7 +108,7 @@ Hard delete требует текущий пароль и `confirm:true`. В о�
 ## Локальная acceptance — 12.10.2026
 
 Текущий стенд: http://127.0.0.1:8046/ . Постоянная fixture-папка вне Git:
-`/Users/obrattsev/vinyl-collection-config/stage4a-local/vinyl-4c-acceptance-izG2e5`.
+`<LOCAL_ACCEPTANCE_DIR>`.
 
 Старая temporary папка отсутствовала после перерыва; существующие БД не удалялись и не пересевались. Новый стенд создан в отдельной DB через `scripts/pg-auth-acceptance.mjs`, с `PG_AUTH_ACCEPTANCE_PARENT` на постоянную папку. Скрипт требует dedicated localhost:55464 admin; runtime ограничен, env 0600. В production не обращались.
 
@@ -117,19 +117,19 @@ Hard delete требует текущий пароль и `confirm:true`. В о�
 Повторный запуск без сброса:
 
 ```sh
-/Users/obrattsev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --env-file=/Users/obrattsev/vinyl-collection-config/stage4a-local/vinyl-4c-acceptance-izG2e5/restart.env server/index.mjs
+node --env-file=<LOCAL_ACCEPTANCE_DIR>/restart.env server/index.mjs
 ```
 
 Если user-local PG остановлен, запустить существующий cluster с прежним портом (system service не требуется):
 
 ```sh
-/Users/obrattsev/vinyl-collection-config/stage4a-local/runtime/bin/pg_ctl -D /Users/obrattsev/vinyl-collection-config/stage4a-local/data -l /Users/obrattsev/vinyl-collection-config/stage4a-local/postgres.log -o '-h 127.0.0.1 -p 55464' start
+<LOCAL_PG_DIR>/runtime/bin/pg_ctl -D <LOCAL_PG_DIR>/data -l <LOCAL_PG_DIR>/postgres.log -o '-h 127.0.0.1 -p 55464' start
 ```
 
 Для OTP только локальный capture:
 
 ```sh
-/Users/obrattsev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/read-local-mail.mjs /Users/obrattsev/vinyl-collection-config/stage4a-local/vinyl-4c-acceptance-izG2e5 cabinet_test@example.test
+node scripts/read-local-mail.mjs <LOCAL_ACCEPTANCE_DIR> cabinet_test@example.test
 ```
 
 Короткая ручная приёмка:

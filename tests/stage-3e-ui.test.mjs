@@ -127,7 +127,7 @@ for (const wishlist of [false, true]) for (const owner of [false, true]) {
     assert.equal(terms.length, owner ? wishlist ? 10 : 12 : 9);
     for (const term of ['Исполнитель', 'Альбом', 'Жанр', 'Лейбл', 'Примечание']) assert.ok(terms.includes(term));
     assert.equal(terms.includes('Ссылка'), owner && wishlist); assert.equal(terms.includes('Магазин покупки'), owner && !wishlist);
-    assert.deepEqual(ui.get('#detail-actions').children.map(n => n.textContent), owner ? ['Редактировать', 'Удалить', ...(wishlist ? ['Добавить в коллекцию'] : [])] : []);
+    assert.deepEqual(ui.get('#detail-actions').children.map(n => n.textContent), owner ? ['Удалить', 'Редактировать', ...(wishlist ? ['Добавить в коллекцию'] : [])] : []);
     assert.ok(find(ui, 'Прослушать')); assert.equal(frames(ui).length, 0);
   });
 }

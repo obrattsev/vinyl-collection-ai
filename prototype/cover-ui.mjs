@@ -9,9 +9,9 @@ export function coverFileError(file) {
 export function createAddCoverField({ document, isOpen, onChange }) {
   const get = id => document.querySelector(`#${id}`);
   const root = get('add-cover-field'), input = get('add-cover-file'), preview = get('add-cover-preview'), error = get('add-cover-error');
-  const remove = get('clear-add-cover');
+  const remove = get('clear-add-cover'), controls = get('add-cover-controls');
   let chosen = null, epoch = 0, pending = false;
-  function clear() { epoch++; chosen = null; pending = false; input.value = ''; remove.hidden = true; preview.replaceChildren(); preview.hidden = true; error.textContent = ''; }
+  function clear() { epoch++; chosen = null; pending = false; controls.hidden = false; input.value = ''; remove.hidden = true; preview.replaceChildren(); preview.hidden = true; error.textContent = ''; }
   input.addEventListener('change', () => {
     const run = ++epoch; chosen = null; pending = false; preview.replaceChildren(); preview.hidden = true; error.textContent = '';
     onChange();
@@ -32,7 +32,8 @@ export function createAddCoverField({ document, isOpen, onChange }) {
   return {
     reset: clear,
     show(value) { root.hidden = !value; },
-    disable(value) { input.disabled = remove.disabled = value; },
+    previewMode(value) { controls.hidden = value; },
+    disable(value) { input.disabled = remove.disabled = value; remove.hidden = value || !input.files?.[0]; },
     get file() { return chosen; },
     validate() { return !pending && !error.textContent; },
     get pending() { return pending; }
@@ -69,7 +70,7 @@ export function favoriteControl(document, record, owner, toggle) {
   return node;
 }
 
-export function createCoverDialog({ document, isOwner, canAct, mutate, onClose }) {
+export function createCoverDialog({ document, isOwner, canAct, mutate, onClose, media }) {
   const get = id => document.querySelector(`#${id}`);
   const dialog = get('cover-dialog'), file = get('cover-file'), preview = get('cover-preview'), error = get('cover-error');
   const save = get('save-cover'), remove = get('remove-cover'), confirm = get('confirm-remove-cover'), cancelRemove = get('cancel-remove-cover');
@@ -80,7 +81,7 @@ export function createCoverDialog({ document, isOwner, canAct, mutate, onClose }
     if (url) { const node = document.createElement('img'); node.src = url; node.alt = 'Обложка пластинки'; preview.append(node); }
   }
   function controls() {
-    file.disabled = save.disabled = remove.disabled = confirm.disabled = cancelRemove.disabled = get('close-cover').disabled = busy;
+    file.disabled = save.disabled = remove.disabled = confirm.disabled = cancelRemove.disabled = get('close-cover').disabled = get('cancel-cover').disabled = busy;
     if (!busy) save.disabled = !chosen || !canAct();
   }
   file.addEventListener('change', () => {
@@ -105,7 +106,7 @@ export function createCoverDialog({ document, isOwner, canAct, mutate, onClose }
   remove.addEventListener('click', () => { if (!busy && canAct()) { get('cover-delete-confirmation').hidden = false; confirm.focus(); } });
   cancelRemove.addEventListener('click', resetDelete);
   confirm.addEventListener('click', () => { if (!get('cover-delete-confirmation').hidden) return send(true); });
-  get('close-cover').addEventListener('click', () => { if (!busy) dialog.close(); });
+  for (const id of ['close-cover', 'cancel-cover']) get(id).addEventListener('click', () => { if (!busy) dialog.close(); });
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
   dialog.addEventListener('close', () => { readEpoch++; chosen = record = null; file.value = ''; image(null); onClose(); });
   return {
@@ -114,10 +115,11 @@ export function createCoverDialog({ document, isOwner, canAct, mutate, onClose }
       if (busy) return;
       record = value; chosen = null; file.value = ''; error.textContent = ''; resetDelete();
       const owner = isOwner(); get('cover-owner-controls').hidden = !owner;
+      dialog.setAttribute('data-owner', String(owner));
       save.hidden = !owner; remove.hidden = !owner || !recordCover(record);
       get('cover-file-label').textContent = recordCover(record) ? 'Заменить обложку' : 'Добавить обложку';
       get('cover-title').textContent = `Обложка: ${record.artist} — ${record.album}`;
-      image(recordCover(record)?.imageUrl); controls(); dialog.showModal(); get('close-cover').focus();
+      image(recordCover(record)?.imageUrl); controls(); dialog.showModal(); get(owner && media && !media.matches ? 'cancel-cover' : 'close-cover').focus();
     }
   };
 }

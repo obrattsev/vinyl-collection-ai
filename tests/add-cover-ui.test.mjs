@@ -89,7 +89,7 @@ test('mobile wishlist Transfer changes only variant; same text/order and existin
  const ui=await prototypeUI(async()=>response([wish]),{wishlist:true,compact:true});
  await ui.get('#load-collection').fire('click');await all(ui.get('#mobile-records')).find(n=>n.className==='compact-record').fire('click');
  const buttons=ui.get('#detail-actions').children;
- assert.deepEqual(buttons.map(b=>b.textContent),['Редактировать','Удалить','Добавить в коллекцию']);
+ assert.deepEqual(buttons.map(b=>b.textContent),['Удалить','Редактировать','Добавить в коллекцию']);
  assert.equal(buttons[0].className,'button-secondary');assert.equal(buttons[1].className,'button-secondary');assert.equal(buttons[2].className,'');
  await buttons[2].fire('click');assert.equal(ui.get('#detail-dialog').open,false);assert.equal(ui.get('#record-dialog').open,true);assert.equal(ui.get('#add-cover-field').hidden,true);
 });

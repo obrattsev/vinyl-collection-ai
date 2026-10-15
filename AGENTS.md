@@ -1,5 +1,23 @@
 # Работа над Vinyl Collection AI
 
+> Current authorization 15.10.2026: owner VISUAL ACCEPTANCE complete (including package 1). Git branch/commit/push/PR and production READ-ONLY audit authorized. Merge, deployment, production changes and real emails require separate approval. LOCAL DONE / VISUAL ACCEPTED / PRODUCTION PENDING.
+
+> Актуальное разрешение: локально исправить шесть UI замечаний visual acceptance (пакет №1), regression и desktop/mobile проверки обеих ролей; обновить существующий стенд без сброса данных. Production и любые Git publication operations запрещены. Повторная приёмка остаётся за владельцем.
+
+> Последующее решение владельца 15.10.2026: весь функциональный scope Stage 4D принят и закрыт — **LOCAL DONE / PRODUCTION PENDING**. Финальные проверки и local manual stand подготовлены; ожидается пользовательская visual acceptance. Новые задачи не добавлять. Git finalization (commit/push/PR/merge) и production operations запрещены до отдельного согласования. [Итог](docs/stage-4d-final-readiness.md).
+
+> Последующее разрешение 15.10.2026: предыдущие UI дополнения приняты Local DONE. Разрешена локальная реализация ежедневной статистики (предыдущий календарный день МСК, 10:00, Postbox, existing PG/systemd), только успешные авторизованные просмотры списков для DAU; hide protected delete button/точный новый текст без изменения server deletion rules. Production и commit/push/deploy запрещены. Сохранить прежние изменения, после реализации остановиться для приёмки.
+
+> Последующее разрешение 15.10.2026: локально исправить пустые значения preview как `-`, auth flash Collection/Wish-list и привести Bug Report button к account button. Статистика 10:00 МСК и удаление первоначального владельца — только исследование/предложение; механизм удаления не менять. Все предыдущие локальные изменения сохранить. Production/Git operations запрещены.
+
+> Актуальное разрешение 15.10.2026: жанры/фильтры приняты как Local DONE. Разрешена локальная визуальная приёмка desktop/mobile и обновление backlog; найденные проблемы сначала представить владельцу, код без согласования не исправлять. Текущий фон цитат полностью принят: замена, альтернативы и сравнение исключены из Stage 4D. Все прежние локальные изменения сохранить. Production и commit/push/merge/deploy запрещены.
+
+> Последующее разрешение 15.10.2026: формы/обложки/тексты приняты как Local DONE. Разрешён только локальный жанровый фильтр по текущему доступному списку, frequency DESC/alphabetical ties, затем остановка для приёмки. Не менять правила поиска/сортировки пластинок, quotes/styles, Clear/Favorite и production; прежние локальные 4D.7/8/формы сохранить. Commit/push/merge/deploy не разрешены.
+
+> Последующее разрешение 15.10.2026: 4D.8 принят как Local DONE, получатель подтверждён. Разрешены только локальные формы/обложки/тексты 4D.1/2/4 с остановкой для приёмки. Не менять quote/background, фильтры и production; никаких операций с двумя тестовыми S3 ресурсами (владелец удаляет сам). Commit/push/merge/deploy не разрешены; локальные 4D.7/8 сохранить.
+
+> Разрешение владельца 15.10.2026 (последующее): 4D.7 принят как Local DONE; PR #32 разрешён к merge и слит после CLEAN/MERGEABLE проверки. Разрешена локальная 4D.8, затем остановка для приёмки. Production/реальные данные не менять. Проверка двух тестовых S3 ресурсов — только read-only; удаление не разрешено. Commit/push/PR для кода 4D не разрешены. Оформление цитат Collection/Wish-list принято, не менять.
+
 > Разрешение владельца 15.10.2026: план 4D принят; реализовать локально только 4D.7 и представить результат перед переходом к 4D.8. Для десяти подготовленных Markdown-файлов разрешены commit/push/PR после проверки; merge и production не разрешены. Для кода 4D отдельного разрешения commit/push/PR нет. Эта запись заменяет прежнее ожидание согласования плана.
 
 > Актуализация 15.10.2026: Stage 4C — DONE / PRODUCTION GO. Первоначальный выпуск `40ab34a19cd5d93d1c635ce1ee766011fc321e31`, затем routing/security fix PR #31; текущий production `f593b3f6e86d81f53fd4e490f87bf8c39b136ebc`. [Production report](docs/stage-4c-production.md). Roadmap: 4A/4B/4C DONE → 4D UX / DATA POLISH NEXT → 4E PUBLIC PAGES / SEO PLANNED → 5A → 5B → 5C → 5D. Старые статусы и планы ниже — исторические; при расхождении действуют эта запись и основной backlog. Разрешены только локальные изменения документации; код 4D, commit/push/PR/merge и production operations ожидают отдельных разрешений.

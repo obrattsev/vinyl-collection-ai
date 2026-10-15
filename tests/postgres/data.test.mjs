@@ -63,7 +63,7 @@ test('safety refuses missing/wrong token and acceptance DB before mutation', asy
 });
 test('migrations repeat concurrently without duplicate application',async()=>{
  await Promise.all([migrate(pool),migrate(pool)]);
- assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'5');
+ assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'7');
 });
 test('migration checksum mismatch and failed DDL never become successful',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'vinyl-migration-test-'));const url=pathToFileURL(dir+'/');
@@ -76,10 +76,12 @@ test('migration checksum mismatch and failed DDL never become successful',async(
   await writeFile(join(dir,'003_auth_foundation.sql'),await readFile(new URL('003_auth_foundation.sql',migrationDirectory),'utf8'));
   await writeFile(join(dir,'004_account_lifecycle.sql'),await readFile(new URL('004_account_lifecycle.sql',migrationDirectory),'utf8'));
   await writeFile(join(dir,'005_restore_recovery.sql'),await readFile(new URL('005_restore_recovery.sql',migrationDirectory),'utf8'));
-  await writeFile(join(dir,'006_failure.sql'),'CREATE TABLE vinyl.must_rollback(id int); SELECT 1/0;');
+  await writeFile(join(dir,'006_bug_report_delivery.sql'),await readFile(new URL('006_bug_report_delivery.sql',migrationDirectory),'utf8'));
+  await writeFile(join(dir,'007_service_statistics.sql'),await readFile(new URL('007_service_statistics.sql',migrationDirectory),'utf8'));
+  await writeFile(join(dir,'008_failure.sql'),'CREATE TABLE vinyl.must_rollback(id int); SELECT 1/0;');
   await assert.rejects(migrate(pool,url));
   assert.equal((await pool.query("SELECT to_regclass('vinyl.must_rollback') AS name")).rows[0].name,null);
-  assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'5');
+  assert.equal((await pool.query('SELECT count(*) FROM vinyl.schema_migrations')).rows[0].count,'7');
  } finally {await rm(dir,{recursive:true,force:true});}
 });
 test('normalized identity uniqueness is enforced under races; defaults private',async()=>{

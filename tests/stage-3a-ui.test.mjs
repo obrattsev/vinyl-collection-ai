@@ -122,9 +122,12 @@ test('late owner results cannot restore export after logout or clear; empty/erro
   assert.deepEqual(current(ui),[]); assert.equal(ui.get('#download-records').disabled,true);
   await ui.get('#load-collection').fire('click'); assert.equal(ui.get('#download-records').disabled,true);
 });
-test('both new genres are shared by searches and add/edit controls without artist changes',async()=>{
+test('new genres stay available in Add/Edit and appear in filters only when present',async()=>{
   for(const wishlist of [false,true]){
-    const ui=await prototypeUI(async()=>response([]),{wishlist});
+    const source={...(wishlist?wish:record),genre:'New Age',additionalGenre:'Various'};
+    const ui=await prototypeUI(async()=>response([source]),{wishlist});
+    assert.deepEqual(ui.get('#search-genre').children.map(o=>o.value),['']);
+    await ui.get('#load-collection').fire('click');
     for(const field of ['genre','additionalGenre']) for(const value of ['New Age','Various']) assert.ok(ui.input(field).children.some(o=>o.value===value));
     for(const value of ['New Age','Various']) assert.ok(ui.get('#search-genre').children.some(o=>o.value===value));
   }

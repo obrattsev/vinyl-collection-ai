@@ -105,7 +105,7 @@ test('both optional genre selectors use exactly the shared closed catalog', asyn
   }
 });
 
-test('both searches bind the four-digit year constraint, share the genre catalog and clear without fetching', async () => {
+test('both searches keep the year constraint, start with empty genre choices and clear without fetching', async () => {
   for (const wishlist of [false,true]) {
     let calls = 0;
     const ui = await prototypeUI(async () => { calls++; return response([]); }, {wishlist});
@@ -115,7 +115,7 @@ test('both searches bind the four-digit year constraint, share the genre catalog
     year.setSelectionRange(0,4);
     await year.fire('paste',{clipboardData:{getData:()=> '20001'}}); assert.equal(year.value,'1979');
     await year.fire('paste',{clipboardData:{getData:()=> '1986'}}); assert.equal(year.value,'1986');
-    assert.deepEqual(ui.get('#search-genre').children.map(option => option.value), ['',...GENRES]);
+    assert.deepEqual(ui.get('#search-genre').children.map(option => option.value), ['']);
     const before = calls; ui.get('#search-form').reset(); assert.equal(year.value,''); assert.equal(calls,before);
     year.value = 'bad'; await year.fire('input'); assert.equal(year.value,'');
   }

@@ -57,3 +57,16 @@ test('SMTP common probe is shared by concurrent requests without recipient data'
  const a=mail.check(),b=mail.check();await Promise.resolve();assert.equal(calls,1);
  resolve(true);assert.deepEqual(await Promise.all([a,b]),[true,true]);
 });
+
+test('report mail has independent fixed recipient, verified From, stable ID and user text only in plain body',async()=>{
+ const sent=[];
+ const mail=createEmailService(env,{createTransport:()=>({sendMail:async m=>{sent.push(m);return {accepted:[m.to]};}})});
+ const notice={recipient:env.POSTBOX_TEST_EMAIL,id:'11111111-1111-4111-8111-111111111111',userId:'22222222-2222-4222-8222-222222222222',createdAt:'2026-10-15T10:00:00.000Z',section:'collection',page:'/fixture/collection',text:'<script>alert(1)</script>\nBcc: attacker@example.test\n=FORMULA()'};
+ assert.equal(await mail.sendReport({...notice,from:'attacker@example.test'}),'accepted');
+ const m=sent[0];assert.equal(m.to,env.POSTBOX_TEST_EMAIL);assert.equal(m.from,'Vinyl Collection <no-reply@vinyl-collection.ru>');
+ assert.equal(m.subject,'Vinyl Collection: отчёт об ошибке');assert.equal(m.messageId,`<bug-report.${notice.id}@vinyl-collection.ru>`);
+ assert.equal(m.html,undefined);assert.equal(m.bcc,undefined);assert.equal(m.replyTo,undefined);assert.equal(m.attachments,undefined);
+ for(const value of [notice.id,notice.userId,notice.createdAt,notice.page,notice.text])assert.ok(m.text.includes(value));
+ assert.equal(await mail.sendReport({...notice,recipient:'other@example.test'}),'failed');assert.equal(sent.length,1);
+ assert.throws(()=>mail.sendReport({...notice,recipient:'ok@example.test\r\nBcc: other@example.test'}));
+});

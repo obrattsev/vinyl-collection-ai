@@ -7,7 +7,7 @@ import { OperationError, validateInput } from '../record-operations.mjs';
 import { recordRepository, coverRepository, ownerTransaction, validId, validRevision } from './repositories.mjs';
 import { ownerBoundary } from './boundary.mjs';
 
-export function createPostgresServices(pool, userId, covers = null, authorizeMutation = null) {
+export function createPostgresServices(pool, userId, covers = null, authorizeMutation = null, statistics = null) {
   userId = validId(userId);
   const repo = (client, section) => recordRepository(client, userId, section);
   const write = work => ownerTransaction(pool, userId, async client => { await authorizeMutation?.(client); return work(client); });
@@ -27,7 +27,9 @@ export function createPostgresServices(pool, userId, covers = null, authorizeMut
   const create = (section,input) => write(async client => {
     validateInput(input,section === 'collection' ? validateDraft : validateWishlistDraft);
     await duplicates(client,section,input);
-    return repo(client,section).insert({ ...input,id:randomUUID(),coverId:null,...(section === 'collection' ? {favorite:false} : {}) });
+    const result=await repo(client,section).insert({ ...input,id:randomUUID(),coverId:null,...(section === 'collection' ? {favorite:false} : {}) });
+    await statistics?.count(client,section+'_added');
+    return result;
   });
   const update = (section,id,expected,input) => write(async client => {
     validateInput(input,section === 'collection' ? validateDraft : validateWishlistDraft);
@@ -78,6 +80,7 @@ export function createPostgresServices(pool, userId, covers = null, authorizeMut
         const matches = (await repo(client,'collection').list()).filter(record => isPotentialDuplicate(candidate,record));
         if (matches.length) throw new OperationError(409,'POTENTIAL_DUPLICATE',{ records:matches });
         target = await repo(client,'collection').insert({ ...candidate,id:randomUUID(),coverId:source.coverId,favorite:false });
+        await statistics?.count(client,'collection_added');
       }
       await repo(client,'wishlist').remove(source.id,expected);
       return { status:'complete',collectionRecord:target,wishlistId:source.id };

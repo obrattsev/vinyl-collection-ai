@@ -49,16 +49,16 @@ for (const wishlist of [false, true]) test(`3B ${wishlist}: detail handoff reuse
     return response(wishlist && url === '/api/collection' ? [] : exists ? [source] : []);
   }, { wishlist, compact: true });
   await ui.get('#load-collection').fire('click'); await buttons(ui)[0].fire('click');
-  await ui.get('#detail-actions').children[0].fire('click');
+  await ui.get('#detail-actions').children[1].fire('click');
   assert.equal(ui.get('#detail-dialog').open, false); assert.equal(ui.get('#record-dialog').open, true);
   await ui.get('#cancel-record').fire('click'); await tick(); assert.equal(ui.activeElement(), buttons(ui)[0]); assert.deepEqual(writes, []);
-  await buttons(ui)[0].fire('click'); await ui.get('#detail-actions').children[0].fire('click');
+  await buttons(ui)[0].fire('click'); await ui.get('#detail-actions').children[1].fire('click');
   ui.fill({ note: 'Changed from mobile' }); await ui.get('#record-form').fire('submit'); await ui.get('#confirm-record').fire('click');
   assert.deepEqual(writes, ['PUT']); assert.equal(ui.get('#detail-dialog').open, false); assert.equal(ui.run('displayedRecords[0].note'), 'Changed from mobile');
-  await buttons(ui)[0].fire('click'); await ui.get('#detail-actions').children[1].fire('click');
+  await buttons(ui)[0].fire('click'); await ui.get('#detail-actions').children[0].fire('click');
   assert.equal(ui.get('#delete-dialog').open, true); assert.equal(ui.get('#detail-dialog').open, false);
   await ui.get('#cancel-delete').fire('click'); await tick(); assert.equal(ui.activeElement(), buttons(ui)[0]);
-  await buttons(ui)[0].fire('click'); await ui.get('#detail-actions').children[1].fire('click'); await ui.get('#confirm-delete').fire('click');
+  await buttons(ui)[0].fire('click'); await ui.get('#detail-actions').children[0].fire('click'); await ui.get('#confirm-delete').fire('click');
   assert.deepEqual(writes, ['PUT', 'DELETE']); assert.equal(buttons(ui).length, 0); assert.equal(ui.activeElement(), ui.get('#status'));
 });
 test('3B wishlist transfer action opens existing transfer flow without nested modal, cancel returns focus', async () => {
@@ -83,9 +83,9 @@ test('3B resize closes detail without resetting search/sort or requesting record
   assert.equal(ui.get('#detail-dialog').open, false); assert.equal(ui.activeElement(), ui.get('#table-container'));
   assert.equal(ui.run('lastCriteria.artist'), record.artist); assert.equal(ui.run('activeSort.field'), 'artist'); assert.equal(reads, 1);
 });
-for (const wishlist of [false, true]) for (const owner of [false, true]) test(`3B report ${wishlist}/${owner} sends exactly text/section, prevents double submit and clears only verified success`, async () => {
+for (const wishlist of [false, true]) for (const owner of [false, true]) test(`3B report ${wishlist}/${owner} sends text/section/page with request key, prevents double submit and clears only verified success`, async () => {
   const wait = deferred(); const calls = [];
-  const ui = await prototypeUI(async (url, options) => { calls.push({ url, options }); return wait.promise; }, { wishlist, owner });
+  const ui = await prototypeUI(async (url, options) => { calls.push({ url, options }); return wait.promise; }, { wishlist, owner, pathname:wishlist?'/wishlist':'/collection' });
   await ui.get('#open-report').fire('click');
   if (!owner) { assert.equal(ui.get('#open-report').hidden,true); assert.equal(Boolean(ui.get('#report-dialog').open),false); assert.equal(calls.length,0); return; }
   assert.equal(ui.get('#report-dialog').open, true);
@@ -93,8 +93,8 @@ for (const wishlist of [false, true]) for (const owner of [false, true]) test(`3
   assert.equal(ui.get('#report-counter').textContent, '2000 / 2000'); assert.equal(ui.get('#send-report').disabled, false);
   const submit = ui.get('#report-form').fire('submit'); await ui.get('#report-form').fire('submit'); await ui.get('#close-report').fire('click');
   assert.equal(calls.length, 1); assert.equal(ui.get('#report-dialog').open, true);
-  assert.deepEqual(JSON.parse(calls[0].options.body), { text: '😀'.repeat(2000), section: wishlist ? 'wishlist' : 'collection' });
-  assert.deepEqual(Object.keys(calls[0].options.headers), ['Content-Type', 'X-CSRF-Token']);
+  assert.deepEqual(JSON.parse(calls[0].options.body), { text: '😀'.repeat(2000), section: wishlist ? 'wishlist' : 'collection', page:wishlist?'/wishlist':'/collection' });
+  assert.deepEqual(Object.keys(calls[0].options.headers), ['Content-Type', 'Idempotency-Key', 'X-CSRF-Token']);
   assert.equal(calls[0].options.headers['X-CSRF-Token'],'test-csrf');
   wait.resolve({ status: 201, json: async () => ({ id: record.id }) }); await submit;
   assert.equal(ui.get('#report-text').value, ''); assert.equal(ui.get('#report-dialog').open, false);
@@ -128,7 +128,7 @@ test('3B report cannot open over an existing CRUD dialog or detail', async () =>
   const ui = await prototypeUI(async () => response([record]), { compact: true });
   await ui.get('#load-collection').fire('click'); await buttons(ui)[0].fire('click');
   await ui.get('#open-report').fire('click'); assert.equal(ui.get('#report-dialog').open, false);
-  await ui.get('#detail-actions').children[0].fire('click');
+  await ui.get('#detail-actions').children[1].fire('click');
   await ui.get('#open-report').fire('click'); assert.equal(ui.get('#report-dialog').open, false);
 });
 

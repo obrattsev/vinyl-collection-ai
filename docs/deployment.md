@@ -1,5 +1,9 @@
 # Vinyl Collection AI — production
 
+> Current authorization 15.10.2026: owner VISUAL ACCEPTANCE complete (including package 1). Git branch/commit/push/PR and production READ-ONLY audit authorized. Merge, deployment, production changes and real emails require separate approval. LOCAL DONE / VISUAL ACCEPTED / PRODUCTION PENDING.
+
+> Для обычных последующих выпусков подготовлен [Stage 4D release checklist](release-checklist.md): schema compatibility и read-only smoke, app rollback без PostgreSQL downgrade. Локальная реализация ожидает приёмки; это не разрешение на production.
+
 > Актуализация 15.10.2026: Stage 4C — DONE / PRODUCTION GO. Первоначальный выпуск `40ab34a19cd5d93d1c635ce1ee766011fc321e31`, затем routing/security fix PR #31; текущий production `f593b3f6e86d81f53fd4e490f87bf8c39b136ebc`. [Production report](stage-4c-production.md). Roadmap: 4A/4B/4C DONE → 4D UX / DATA POLISH NEXT → 4E PUBLIC PAGES / SEO PLANNED → 5A → 5B → 5C → 5D. Старые статусы и планы ниже — исторические; при расхождении действуют эта запись и основной backlog. Разрешены только локальные изменения документации; код 4D, commit/push/PR/merge и production operations ожидают отдельных разрешений.
 
 Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B production cutover и data verification выполнены 04.10.2026; 4C–4F и Stage 5 не начаты.
@@ -116,3 +120,7 @@ Stage 4B local phase: [implementation/acceptance](stage-4b-local.md), [gated pro
 Local acceptance 4B успешно принята владельцем. Git finalization и production phase разрешены с последовательными verification gates; cutover выполнен 04.10.2026; verification и cleanup пройдены, freeze снят. Backup decision: Timeweb daily VPS disk backup + проверенные logical PG/Covers backups на VPS (7 daily + 4 weekly) + one-way owner Sheets mirror. S3/SFTP и новые providers/dependencies не добавлять. Timeweb daily VPS backup подтверждён владельцем; timestamp последнего provider backup средствами deployment environment не подтверждён. Более ранние требования отдельного offsite provider и ожидания local acceptance выше заменены этим решением. Freeze только непосредственно перед cutover, снять после verification.
 
 Фактический release, verification, backup/monitoring и ограничения: [production report 4B](stage-4b-production.md).
+
+## Stage 4D — подготовленные локальные daily statistics units
+
+[Контракт и release gates](stage-4d-statistics-local.md). ops/systemd содержит один oneshot и daily/retry timers для existing Node/Postbox/PG, 10:00 МСК, retries 10:05/10:10. Это подготовленные файлы, не установленные production units. Включение только при отдельно разрешённом общем Stage 4D release после migration 007/grants и env review. Production в этой задаче не менялся.

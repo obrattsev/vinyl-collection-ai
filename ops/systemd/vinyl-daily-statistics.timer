@@ -1,0 +1,9 @@
+[Unit]
+Description=Vinyl Collection statistics at 10:00 Moscow
+[Timer]
+OnCalendar=*-*-* 10:00:00 Europe/Moscow
+Persistent=true
+AccuracySec=1s
+Unit=vinyl-daily-statistics.service
+[Install]
+WantedBy=timers.target

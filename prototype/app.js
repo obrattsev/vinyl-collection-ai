@@ -8,10 +8,10 @@ import { PUBLIC_FIELDS, validatePublicRecords } from '../src/public-record.mjs';
 import { validateCollection } from '../src/collection-record.mjs';
 import { validateWishlist, validateWishlistDraft, wishlistFieldErrors, wishlistRevision } from '../src/wishlist-record.mjs';
 import { searchWishlist, validateWishlistCriteria } from '../src/wishlist-rules.mjs';
-import { GENRES } from '../src/genres.mjs';
+import { GENRES, genresInRecords } from '../src/genres.mjs';
 import { bindInputConstraint, formatDateInput, formatPriceInput, formatYearInput } from './input-controls.mjs';
 import { validateDraft, recordRevision, draftFieldErrors } from '../src/collection-record.mjs';
-import { searchCollection, validateSearchCriteria, checkAddition, isPotentialDuplicate } from '../src/collection-rules.mjs';
+import { normalize, searchCollection, validateSearchCriteria, checkAddition, isPotentialDuplicate } from '../src/collection-rules.mjs';
 
 const isWishlist = document.body?.dataset.section === 'wishlist';
 const endpoint = isWishlist ? '/api/wishlist' : '/api/collection';
@@ -27,10 +27,19 @@ const form = document.querySelector('#search-form');
 const controls = document.querySelector('#search-controls');
 bindInputConstraint(document.querySelector('#search-year'), formatYearInput);
 const searchGenre = document.querySelector('#search-genre');
-for (const genre of ['', ...GENRES]) {
-  const option = document.createElement('option');
-  option.value = genre; option.textContent = genre || 'Любой жанр'; searchGenre.append(option);
+function refreshSearchGenres(records) {
+  const previous = searchGenre.value || '';
+  const genres = genresInRecords(records);
+  const selected = genres.find(genre => normalize(genre) === normalize(previous)) || '';
+  searchGenre.replaceChildren();
+  for (const genre of ['', ...genres]) {
+    const option = document.createElement('option');
+    option.value = genre; option.textContent = genre || 'Любой жанр'; searchGenre.append(option);
+  }
+  searchGenre.value = selected;
+  return previous && !selected ? previous : null;
 }
+refreshSearchGenres([]);
 const criteriaError = document.querySelector('#criteria-error');
 const status = document.querySelector('#status');
 const error = document.querySelector('#error');
@@ -127,14 +136,17 @@ async function showCollection(criteria = {}) {
   rows.replaceChildren();
 
   try {
-    const response = await fetch(readEndpoint, { cache: 'no-store' });
+    const response = await fetch(readEndpoint, { cache: 'no-store', headers: document.visibilityState === 'hidden' ? {} : {'X-Collection-View':'1'} });
     if (!response.ok) { const body = await response.json(); throw new Error(body.error); }
     const records = await response.json();
     if (version !== loadVersion) return;
     if (response.headers?.get('X-Access-Role') === 'guest' && owner) { applySession({ role: 'guest' }); await showCollection(criteria); return; }
     if (owner) validateRecords(records); else validatePublicRecords(records, isWishlist);
-    const results = searchRecords(records, criteria);
-    lastCriteria = { ...criteria };
+    const removedGenre = refreshSearchGenres(records);
+    const currentCriteria = removedGenre && normalize(criteria.genre) === normalize(removedGenre)
+      ? { ...criteria, genre: '' } : criteria;
+    const results = searchRecords(records, currentCriteria);
+    lastCriteria = { ...currentCriteria };
     needsRefresh = owner && needsBothRefresh;
     document.querySelector('#add-record').disabled = needsRefresh;
     if (records.length === 0) {
@@ -162,6 +174,7 @@ async function showCollection(criteria = {}) {
     return true;
   } catch (cause) {
     if (version !== loadVersion) return;
+    refreshSearchGenres([]);
     status.textContent = '';
     error.textContent = cause.message === 'COLLECTION_PRIVATE' ? 'Этот список закрыт. Войдите в аккаунт владельца, чтобы увидеть его.' : profileLogin && cause.message === 'NOT_FOUND' ? 'Пользователь не найден.' : cause.message === 'WISHLIST_NOT_CONFIGURED' ? 'Wish-list ещё не подключён. Настройте отдельный Google Sheets-документ на сервере.' : isWishlist ? 'Ошибка загрузки данных. Не удалось загрузить wish-list.' : 'Ошибка загрузки данных. Не удалось загрузить коллекцию.';
     error.hidden = false;
@@ -259,6 +272,10 @@ const recordForm = document.querySelector('#record-form');
 const recordFields = document.querySelector('#record-fields');
 const recordError = document.querySelector('#record-error');
 const preview = document.querySelector('#record-preview');
+let pendingCoverRemoval = false;
+const editCoverField = document.querySelector('#edit-cover-field');
+const removeEditCover = document.querySelector('#edit-remove-cover');
+const keepEditCover = document.querySelector('#edit-keep-cover');
 const previewButton = document.querySelector('#preview-record');
 const confirmButton = document.querySelector('#confirm-record');
 const editButton = document.querySelector('#edit-draft');
@@ -283,11 +300,11 @@ for (const [name, title] of Object.entries(isWishlist ? { ...labels, ...Object.f
   } else {
     if (name === 'note') input.rows = 4;
     else input.type = 'text';
-    if (name.endsWith('Year')) { input.inputMode = 'numeric'; input.placeholder = 'YYYY'; input.maxLength = 4; }
+    if (name.endsWith('Year')) { input.inputMode = 'numeric'; input.placeholder = ''; input.maxLength = 4; }
     if (name === 'purchaseDate') {
-      input.placeholder = 'DD.MM.YYYY'; input.inputMode = 'numeric'; input.maxLength = 10;
+      input.placeholder = ''; input.inputMode = 'numeric'; input.maxLength = 10;
     }
-    if (name === 'purchasePrice' || name === 'salePrice') { input.inputMode = 'decimal'; input.placeholder = '0 — бесплатно'; }
+    if (name === 'purchasePrice' || name === 'salePrice') { input.inputMode = 'decimal'; input.placeholder = ''; }
   }
   if (['artist','album','albumYear'].includes(name)) input.required = true;
   if (['artist','album','label'].includes(name)) {
@@ -330,6 +347,8 @@ function readDraft() {
 }
 function setFormMode(source = null) {
   editSource = editConflict = null;
+  pendingCoverRemoval = false;
+  updateEditCoverControls();
   editInitialValues.clear();
   currentPreview.replaceChildren(); currentPreview.hidden = reviewCurrent.hidden = true;
   // Legacy options belong only to the record being edited, never to later add forms.
@@ -374,12 +393,12 @@ function displayRecord(target, record, displayLabels = labels) {
     if(field==='salePrice' && record.salePrice==null && !(editSource?.salePrice!=null && target===preview))continue;
     const term = document.createElement('dt'); term.textContent = title;
     const value = document.createElement('dd');
-    if (field === 'storeUrl' && target === document.querySelector('#detail-content')) renderStoreLink(document, value, record[field], 'Открыть ↗');
-    else value.textContent = displayValue(field, record[field]);
+    if (field === 'storeUrl' && target === document.querySelector('#detail-content') && displayValue(field, record[field]) !== '') renderStoreLink(document, value, record[field], 'Открыть ↗');
+    else value.textContent = displayValue(field, record[field]) === '' ? '-' : displayValue(field, record[field]);
     if (editSource && target === preview && record[field] !== editSource[field]) {
       value.className = 'changed-value';
       const before = document.createElement('span'); before.className = 'previous-value';
-      before.textContent = `Было: ${displayValue(field, editSource[field]) === '' ? '—' : displayValue(field, editSource[field])} → Стало: `;
+      before.textContent = `Было: ${displayValue(field, editSource[field]) === '' ? '-' : displayValue(field, editSource[field])} → Стало: `;
       value.prepend(before);
     }
     list.append(term, value);
@@ -390,7 +409,7 @@ function displayRecord(target, record, displayLabels = labels) {
     const cover = recordCover(record);
     if (cover) { const image = document.createElement('img'); image.src = cover.imageUrl; image.alt = `Обложка: ${record.artist} — ${record.album}`; image.addEventListener('error', () => { image.hidden = true; }); media.append(image); }
     if (owner) {
-      for (const title of cover ? ['Заменить', 'Удалить'] : ['Добавить обложку']) {
+      for (const title of cover ? ['Удалить', 'Заменить'] : ['Добавить обложку']) {
         const action = document.createElement('button'); action.type = 'button'; action.className = 'button-secondary'; action.textContent = title;
         action.setAttribute('aria-label', title === 'Добавить обложку' ? title : `${title} обложку`);
         action.addEventListener('click', () => openCover(record, action, title === 'Удалить')); media.append(action);
@@ -417,6 +436,7 @@ async function additionRecords() {
 }
 function showEditConflict(current) {
   editConflict = current; draft = null;
+  pendingCoverRemoval = false; updateEditCoverControls();
   recordFields.hidden = false; preview.hidden = true; confirmButton.hidden = true;
   previewButton.disabled = true;
   displayRecord(currentPreview, current);
@@ -460,11 +480,27 @@ async function openEdit(record) {
     if (run === dialogRun && dialog.open) recordError.textContent = 'Не удалось загрузить подсказки. Перед сохранением данные будут проверены повторно.';
   }
 }
+function updateEditCoverControls() {
+  const available = owner && Boolean(editSource && recordCover(editSource));
+  editCoverField.hidden = !available || Boolean(draft);
+  removeEditCover.hidden = !available || pendingCoverRemoval;
+  keepEditCover.hidden = !available || !pendingCoverRemoval;
+  removeEditCover.disabled = keepEditCover.disabled = writing || checking;
+  document.querySelector('#edit-cover-status').textContent = available && pendingCoverRemoval
+    ? 'Обложка будет удалена после подтверждения изменений.' : '';
+}
+for (const [control, removing] of [[removeEditCover, true], [keepEditCover, false]]) control.addEventListener('click', () => {
+  if (!owner || authBusy || writing || checking || needsRefresh || editConflict || !dialog.open || !editSource || !recordCover(editSource) || draft) return;
+  pendingCoverRemoval = removing;
+  editDraft();
+});
 function editDraft() {
   confirmButton.textContent = editSource ? 'Подтвердить изменения' : transferSource ? 'Подтвердить перенос' : 'Подтвердить добавление';
   transferTarget = null; draft = null; recordFields.hidden = false; preview.hidden = true;
   confirmButton.hidden = editButton.hidden = true; previewButton.hidden = false;
-  addCover.show(!editSource && !transferSource); addCover.disable(false);
+  addCover.show(!editSource && !transferSource); addCover.previewMode(false); addCover.disable(false);
+  previewButton.textContent = editSource ? 'Изменить' : transferSource ? 'Проверить и просмотреть' : 'Добавить';
+  updateEditCoverControls();
 }
 document.querySelector('#add-record').addEventListener('click', async () => {
   if (!owner || authBusy || needsRefresh || writing) return;
@@ -513,7 +549,7 @@ recordForm.addEventListener('submit', async event => {
   }
   const run = dialogRun;
   addCover.disable(true);
-  checking = true; previewButton.disabled = true; recordFields.disabled = true;
+  checking = true; previewButton.disabled = true; recordFields.disabled = true; updateEditCoverControls();
   try {
     const { collection, wishlist } = await additionRecords();
     if (run !== dialogRun || !dialog.open) return;
@@ -537,7 +573,11 @@ recordForm.addEventListener('submit', async event => {
       showDuplicates([...result.duplicates, ...result.ownedDuplicates]);
       return;
     }
-    draft = input; displayRecord(preview, draft, transferSource ? collectionLabels : labels); preview.hidden = false; recordFields.hidden = true;
+    draft = input; addCover.previewMode(true); displayRecord(preview, draft, transferSource ? collectionLabels : labels); preview.hidden = false; recordFields.hidden = true;
+    if (editSource && pendingCoverRemoval) {
+      const notice = document.createElement('p'); notice.textContent = 'Обложка будет удалена после подтверждения изменений.'; preview.append(notice);
+    }
+    updateEditCoverControls();
     if (result.warnings.length) {
       recordError.textContent = 'Возможный дубль: признаки издания известны не полностью. Проверьте найденные записи; операцию можно подтвердить.';
       for (const record of result.warnings) { const block = document.createElement('div'); displayRecord(block, record); preview.append(block); }
@@ -550,7 +590,7 @@ recordForm.addEventListener('submit', async event => {
   } catch {
     if (run === dialogRun && dialog.open) recordError.textContent = 'Не удалось проверить коллекцию. Изменения не записаны.';
   } finally {
-    if (run === dialogRun) { checking = false; previewButton.disabled = Boolean(editConflict); recordFields.disabled = false; addCover.disable(Boolean(draft)); }
+    if (run === dialogRun) { checking = false; previewButton.disabled = Boolean(editConflict); recordFields.disabled = false; addCover.disable(Boolean(draft)); updateEditCoverControls(); }
   }
 });
 function requireRefresh() {
@@ -587,6 +627,7 @@ confirmButton.addEventListener('click', async () => {
   const source = transferSource;
   const target = transferTarget;
   const selectedCover = !source && !editSource ? addCover.file : null;
+  const removeCover = Boolean(editSource && pendingCoverRemoval);
   const submitted = draft;
   const addEpoch = authVersion;
   addCover.disable(true);
@@ -606,22 +647,24 @@ confirmButton.addEventListener('click', async () => {
         method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', ...(editing ? { 'If-Match': await revisionFor(editing) } : {}) }, body: JSON.stringify(draft)
       });
       let coverFailure = null;
-      if (selectedCover) {
+      if (selectedCover || removeCover) {
         // Do not attach anything until the metadata response identifies the confirmed new record.
         try {
           validateRecords([created]);
-          if (Object.entries(submitted).some(([key, value]) => created[key] !== value)) throw Error('metadata');
+          if ((editing && created.id !== editing.id) || Object.entries(submitted).some(([key, value]) => created[key] !== value)) throw Error('metadata');
         } catch { throw { error: 'RESULT_UNCONFIRMED' }; }
         try {
           if (!owner || addEpoch !== authVersion) throw { error: 'RESULT_UNCONFIRMED' };
-          const updated = await writeRequest(`${endpoint}/${created.id}/cover`, { method: 'PUT',
-            headers: { 'Content-Type': selectedCover.type, 'If-Match': await revisionFor(created) }, body: selectedCover });
-          try { validateRecords([updated]); if (updated.id !== created.id || !updated.coverId) throw Error('cover'); }
+          const updated = await writeRequest(`${endpoint}/${created.id}/cover`, { method: removeCover ? 'DELETE' : 'PUT',
+            headers: { ...(!removeCover ? { 'Content-Type': selectedCover.type } : {}), 'If-Match': await revisionFor(created) }, ...(!removeCover ? { body: selectedCover } : {}) });
+          try { validateRecords([updated]); if (updated.id !== created.id || (removeCover ? updated.coverId !== null : !updated.coverId)) throw Error('cover'); }
           catch { throw { error: 'RESULT_UNCONFIRMED' }; }
         } catch (cause) { coverFailure = cause; }
       }
       dialog.close();
-      operationStatus.textContent = coverFailure
+      operationStatus.textContent = coverFailure && removeCover
+        ? `Изменения сохранены, ${coverFailure.error === 'RESULT_UNCONFIRMED' ? 'результат удаления обложки не подтверждён' : 'обложку удалить не удалось'}. Обновите список перед дальнейшими действиями. Автоматического повтора нет.`
+        : coverFailure
         ? coverFailure.error === 'RESULT_UNCONFIRMED'
           ? `Пластинка добавлена, результат добавления обложки не подтверждён: ${created.artist} — ${created.album}. Обновите список перед дальнейшими действиями. Автоматического повтора нет.`
           : `Пластинка добавлена, но обложку добавить не удалось: ${created.artist} — ${created.album}. Проверьте список и добавьте обложку через обычное окно обложки.`
@@ -719,14 +762,17 @@ const logoutButton = document.querySelector('#owner-logout');
 
 let authMode = profileLogin ? 'multiuser' : 'legacy';
 let authenticated = false;
+let reportIdentity = null;
 function applySession(session) {
   authMode = session.authMode || authMode;
   authenticated = session.role === 'owner' && typeof session.csrfToken === 'string';
+  reportIdentity = authenticated ? session.userId || session.login || 'legacy-owner' : null;
   const nextOwner = authenticated && (!profileLogin || session.login?.toLowerCase() === profileLogin);
   const nextToken = authenticated ? session.csrfToken : null;
   if (owner !== nextOwner || csrfToken !== nextToken) {
     authVersion++; dialogRun++;
     resetResults();
+    refreshSearchGenres([]);
     dialog.close(); deleteDialog.close();
     coverDialog.reset();
     preview.replaceChildren(); deletePreview.replaceChildren();
@@ -759,6 +805,8 @@ async function checkSession() {
   } catch {
     if (version !== sessionCheckVersion || authEpoch !== authVersion || writing || authBusy) return;
     applySession({ role: 'guest' });
+    // A failed check is unknown auth, not a confirmed signed-out session.
+    loginButton.hidden = logoutButton.hidden = document.querySelector('#account-link').hidden = true;
     authStatus.textContent = 'Не удалось проверить вход. Попробуйте позже.';
   }
 }
@@ -871,13 +919,15 @@ async function toggleFavorite(record) {
   catch (cause) { operationStatus.textContent = cause.message; }
   finally { restoreQuickFocus(record, 'favorite'); }
 }
-const coverDialog = createCoverDialog({ document, isOwner: () => owner, canAct: canPresentAct,
+const coverDialog = createCoverDialog({ document, media: window.matchMedia('(max-width: 1120px)'), isOwner: () => owner, canAct: canPresentAct,
   mutate: (record, file) => changePresentation(record, 'cover', file ? 'PUT' : 'DELETE', file || undefined, file?.type),
   onClose: () => setTimeout(() => {
     if (coverFocusRecord) restoreQuickFocus(coverFocusRecord, 'cover');
     coverFocusRecord = null;
   }, 0) });
 bindBugReport({ document, fetch, section: isWishlist ? 'wishlist' : 'collection', getCsrfToken: () => csrfToken,
+  getPage: () => window.location.pathname, getIdentity: () => reportIdentity,
+  canSend: () => authenticated && !authBusy,
   canOpen: () => authenticated && !writing && !authBusy && !anyDialogOpen() && !document.querySelector('#detail-dialog').open });
 
 document.addEventListener('DOMContentLoaded', async () => { resetResults(); void bindDailyQuote({ document, window, fetch, section: isWishlist ? 'wishlist' : 'collection' }); await checkSession(); if (profileLogin) await showCollection(); });

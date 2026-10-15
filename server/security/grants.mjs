@@ -1,7 +1,13 @@
 // Run only through separately authorized migration/admin tooling. No runtime DDL.
 export function authGrants(runtimeRole, backupRole) {
   for (const role of [runtimeRole,backupRole]) if(!/^[a-z][a-z0-9_]{0,62}$/.test(role))throw Error('Invalid role identifier');
-  return `GRANT SELECT ON vinyl.restore_epoch,vinyl.restore_quarantine TO "${runtimeRole}";
+  return `GRANT SELECT,INSERT ON vinyl.statistics_state TO "${runtimeRole}";
+GRANT SELECT,INSERT,UPDATE ON vinyl.statistics_daily,vinyl.statistics_reports TO "${runtimeRole}";
+GRANT SELECT,INSERT,DELETE ON vinyl.statistics_user_days TO "${runtimeRole}";
+GRANT SELECT ON vinyl.statistics_state,vinyl.statistics_daily,vinyl.statistics_user_days,vinyl.statistics_reports TO "${backupRole}";
+GRANT SELECT,INSERT,UPDATE ON vinyl.bug_report_deliveries TO "${runtimeRole}";
+GRANT SELECT ON vinyl.bug_report_deliveries TO "${backupRole}";
+GRANT SELECT ON vinyl.restore_epoch,vinyl.restore_quarantine TO "${runtimeRole}";
 GRANT SELECT,INSERT,UPDATE,DELETE ON vinyl.restore_recovery_grants TO "${runtimeRole}";
 GRANT SELECT ON vinyl.restore_epoch,vinyl.restore_quarantine,vinyl.restore_recovery_grants TO "${backupRole}";
 GRANT INSERT ON vinyl.users,vinyl.login_reservations TO "${runtimeRole}";

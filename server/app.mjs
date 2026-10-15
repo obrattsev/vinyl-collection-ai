@@ -60,7 +60,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite, lookupStreaming, authorizeList, authorizeCover }, { auth, quoteSource, servicesForSession } = {}) {
+export function createApp({ getCollection, createRecord, deleteRecord, updateRecord, getWishlist, createWishlistRecord, deleteWishlistRecord, updateWishlistRecord, transferRecord, createReport, coverStorage, changeCover, changeFavorite, lookupStreaming, authorizeList, authorizeCover }, { auth, quoteSource, servicesForSession, onListView } = {}) {
   let coverUploading = false;
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -113,6 +113,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         if (api) {
           const records = (section === 'wishlist' ? validateWishlist : validateCollection)(await profile.records());
           if (req.method === 'HEAD') {res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});res.end();return;}
+          if(req.headers['x-collection-view']==='1' && session)await onListView?.(session);
           json(res,200,profile.owner ? records : publicRecords(records,profile.showSalePrice));return;
         }
         const file = clientFiles.get('/'+section);
@@ -147,7 +148,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         auth.requireOwner(req, session);
         auth.limit(req, 'report', res);
         if (!createReport) throw new OperationError(503, 'REPORT_NOT_CONFIGURED');
-        json(res, 201, await createReport(await readBody(req, 16384))); return;
+        json(res, 201, await createReport(await readBody(req, 16384), {session,requestId:req.headers['idempotency-key']})); return;
       }
       if (path === '/api/streaming/lookup') {
         if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); throw new OperationError(405, 'METHOD_NOT_ALLOWED'); }
@@ -201,7 +202,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
       if (path === '/api/wishlist' || path.startsWith('/api/wishlist/')) {
         if (!getWishlist) { json(res, 503, { error: 'WISHLIST_NOT_CONFIGURED' }); return; }
         if (path === '/api/wishlist') {
-          if (req.method === 'GET') { await authorizeList?.('wishlist',session); json(res, 200, visible(validateWishlist(await getWishlist()))); return; }
+          if (req.method === 'GET') { await authorizeList?.('wishlist',session); const records=visible(validateWishlist(await getWishlist())); if(req.headers['x-collection-view']==='1' && session)await onListView?.(session); json(res,200,records); return; }
           if (req.method === 'POST') { json(res, 201, await createWishlistRecord(await readBody(req))); return; }
           res.setHeader('Allow', 'GET, POST'); json(res, 405, { error: 'METHOD_NOT_ALLOWED' }); return;
         }
@@ -219,7 +220,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         json(res, 404, { error: 'NOT_FOUND' }); return;
       }
       if (path === '/api/collection') {
-        if (req.method === 'GET') { await authorizeList?.('collection',session); json(res, 200, visible(validateCollection(await getCollection()))); return; }
+        if (req.method === 'GET') { await authorizeList?.('collection',session); const records=visible(validateCollection(await getCollection())); if(req.headers['x-collection-view']==='1' && session)await onListView?.(session); json(res,200,records); return; }
         if (req.method === 'POST' && createRecord) {
           json(res, 201, await createRecord(await readBody(req))); return;
         }

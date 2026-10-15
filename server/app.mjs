@@ -82,6 +82,12 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         if(unsafe){req.setTimeout(5000,()=>req.destroy());try{body=await readBody(req,8192);}finally{req.setTimeout(0);}}
         await auth.handle(req,res,path,body,session); return;
       }
+      // Bare/legacy pages have no public owner; signed-in aliases use this session only.
+      const alias = pageAliases.get(path.replace(/\/+$/, ''));
+      if (servicesForSession?.profile && alias && ['GET','HEAD'].includes(req.method)) {
+        const destination = session?.login ? `/${encodeURIComponent(session.login)}${alias}` : '/';
+        res.writeHead(302, { Location: destination }); res.end(); return;
+      }
       const shortProfile = path.match(/^\/([a-zA-Z][a-zA-Z0-9_-]{2,29})(?:\/(collection|wishlist))?\/?$/);
       const shortRoute = shortProfile && !RESERVED_LOGINS.has(shortProfile[1].toLowerCase()) ? [shortProfile[0],undefined,shortProfile[1],shortProfile[2]] : null;
       const profileRoute = shortRoute || path.match(/^\/(api\/)?u\/([a-zA-Z][a-zA-Z0-9_-]{2,29})(?:\/(collection|wishlist))?\/?$/);

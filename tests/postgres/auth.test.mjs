@@ -253,6 +253,23 @@ test('profile routes resolve the requested user, enforce independent privacy and
    assert.equal(res.status,200);assert.equal(res.headers.get('X-Access-Role'),'guest');
    assert.equal(rows.length,1);assert.equal(rows[0].artist,'Profile A');assert.equal(rows[0].id,undefined);assert.equal(rows[0].purchasePrice,undefined);
  }
+ // Bare pages select the session, never the configured production owner.
+ for(const section of ['collection','wishlist']) {
+  for(const suffix of ['', '/', '///']) {
+   for(const method of ['GET','HEAD']) {
+    for(const [cookie,login] of [['',null],['a',a.login],['b',b.login]]) {
+     const res=await fetch(base+`/${section}${suffix}?next=https://example.invalid`,{method,redirect:'manual',headers:{Cookie:cookie}});
+     assert.equal(res.status,302);assert.equal(res.headers.get('location'),login?`/${login}/${section}`:'/');
+    }
+   }
+  }
+  assert.equal((await fetch(base+`/api/${section}`)).status,401);
+ }
+ for(const alias of ['/prototype','/prototype/index.html','/prototype/wishlist.html']) {
+  const res=await fetch(base+alias,{redirect:'manual'});assert.equal(res.status,302);assert.equal(res.headers.get('location'),'/');
+ }
+ const ownB=await(await fetch(base+'/api/collection',{headers:{Cookie:'b'}})).json();
+ assert.equal(ownB.length,1);assert.equal(ownB[0].artist,'Profile B');
  const own=await fetch(base+api,{headers:{Cookie:'a'}});assert.equal(own.headers.get('X-Access-Role'),'owner');assert.ok((await own.json())[0].id);
  assert.equal((await fetch(base+`/u/${a.login}/wishlist`)).status,403);
  const alias=await fetch(base+`/u/${a.login}`,{redirect:'manual'});assert.equal(alias.headers.get('location'),path);

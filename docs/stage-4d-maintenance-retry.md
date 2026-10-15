@@ -1,0 +1,48 @@
+# Stage 4D — предлагаемый повторный deployment после диагностики
+
+**Только план. Production изменения и новый deployment не разрешены.** Бизнес-код кандидата не изменялся. Разрешённым ранее application SHA был `d1eb7161507a72c207ffbc20d829574f4dffc146`; operator corrections публикуются отдельным PR и не входят в этот application SHA. Для повторного выпуска требуется отдельное разрешение на применение reviewed операторских материалов; если они войдут в новый Git release, новый SHA также требует согласования. Не менять проверенный immutable артефакт под прежним SHA.
+
+## Точный delta production nginx, подлежащий согласованию
+
+Единственный изменяемый site: `/etc/nginx/sites-available/vinyl-collection.ru`. Системный nginx unit, default site, TLS, proxy paths, WireGuard/SSH/firewall не менять. Snippet из `ops/maintenance-gate.mjs` установить в **каждый из трёх server blocks** (HTTP canonical+www, HTTPS canonical, HTTPS www) сразу после server_name, до любых return/rewrite. Использовать один root-owned flag `/var/www/vinyl-4d-maintenance.flag` и новый случайный 32-hex window token, который служит только публичным диагностическим marker, не credential.
+
+Delta: `open_file_cache off`; `X-Vinyl-Gate-Config` generation header; `if (-f FLAG) { return 503; }`; error_page 503 и named location с X-Vinyl-Maintenance/window marker, Cache-Control no-store и Retry-After 60. Нет public IP exceptions, maps, новых services/proxies/databases/listeners. Оператор использует уже существующий приватный Node port.
+
+Flag при установке отсутствует. До редактирования сохранить exact config/unit/env states в новом root-only operation directory, зафиксировать nginx master и **все прежние worker PIDs**, безопасные baseline status/location всех probes на четырёх origins. Token/flag path валидируются. Провести review полного nginx -T, включая наследование add_header и отсутствие cache/alternate app ingress. Перед действием проверить baseline не изменился; не пользоваться старым operation directory.
+
+## Последовательность gates
+
+1. Новое разрешение владельца на повторное окно и системный delta. Переснять release/schema/checksums/freeze, data/session/Covers fingerprints, backup/mirror, resources. Любое неожиданное изменение — STOP. Подготовленный application candidate должен совпасть с exact согласованным SHA и lockfile.
+2. Подготовить gate с **flag absent**, nginx -t и контролируемый reload. Это ещё не maintenance: приложение продолжает работать. Дождаться retirement каждого старого worker с bounded deadline (например, 30 секунд, без SIGKILL), подтвердить новый generation marker на всех origins и точные прежние статусы/redirect targets через `captureMaintenanceBaseline`/`checkMaintenanceArmed`. Не считать systemctl reload завершением этого gate. Если timeout — отменить подготовку, сохранить старый release и рабочую маршрутизацию; не включать flag.
+3. Объявить паузу пользовательских изменений. Создать flag root-owned 0644 атомарно, без reload. Проверка из внешнего источника, который не является исключением (исключений теперь вообще нет): `node scripts/maintenance-check.mjs TOKEN http://vinyl-collection.ru https://vinyl-collection.ru http://www.vinyl-collection.ru https://www.vinyl-collection.ru`. Не заменять Host/SNI и не следовать redirects. CLI выполняет только GET/HEAD, без cookies и activity header. У каждого ответа требуются 503, оба exact markers, no-store/Retry-After. Три полных прохода, fresh connections; первый unexpected response сразу FAIL, без ожидания «когда-нибудь 503».
+4. Только после доказанного ingress gate: дождаться уже принятых запросов, зафиксировать и приостановить необходимые timer/mirror states, freeze/drain и graceful stop app. Auth writes не считать заблокированными одним business freeze. Не проходить к DDL до завершения уже начатых HTTP операций и fresh backup/actual isolated restore gate из основного плана.
+5. Выполнить fresh PG+Covers backup и реальное восстановление в marked isolated test DB с отдельными Covers, без SMTP/Sheets. Проверить canonical hashes, все users/lists/Covers и auth integrity. Затем 006 → 007, grants, schema 7 и данные; current switch/start exact согласованного app SHA. Никакого автоматического PostgreSQL rollback.
+6. При всё ещё закрытом public ingress проверить private Node read-only routes непосредственно на 127.0.0.1:8000 из SSH, без cookies и X-Collection-View. Проверить данные/session identity/auth versions/Covers fingerprints, startup и совместимость. Private endpoint не публиковать наружу и не добавлять tunnel/proxy. После явного thaw — after gate; если что-либо не прошло, закрытый ingress и совместимый app rollback по основному плану.
+7. Возвратить mirror/backup states и проверить их до открытия. Снять flag атомарно **без reload**, сверить полный armed baseline на public origins. Убедиться, что X-Vinyl-Maintenance исчез и обычные статусы/redirects восстановлены. Фактическая browser-проверка прежней сессии владельцем — после этого; cookies не извлекать.
+8. Пользователь сам создаёт единственный новый помеченный Bug Report, когда будет сообщено о готовности Stage 4D. Проверить PG/Sheets/Postbox, inbox PENDING до подтверждения. Daily units и первый отчёт — только в уже согласованном порядке и после успешного startup; повторное разрешение deployment должно сохранять разрешение реальных писем. Исторических данных/искусственных событий не создавать.
+9. Временно установленный gate snippet удалить с отсутствующим flag, nginx -t/reload, дождаться worker retirement и снова сверить baseline. Зафиксировать точный SHA/schema/период недоступности/evidence; сохранить previous app/config для rollback.
+
+## Риски и безопасный отказ
+
+- Reload асинхронен, старые keep-alive/in-flight requests могут пережить reload. Дождаться всех старых workers **до** flag activation; fixed sleep вместо evidence запрещён. При долгих connections — STOP без принудительного убийства workers.
+- В момент flag activation уже проксируемые запросы могут завершаться; gate запрещает новые запросы, а не отменяет прошлые. Freeze/drain и graceful app stop завершают barrier до backup/DDL.
+- HTTP и www теперь дают собственный 503 вместо redirect. Это намеренное изменение на время окна. Короткое окно также блокирует ACME challenge: не пересекать его с certbot renewal; TLS config и сертификаты не менять.
+- Новый server-level add_header может менять nginx inheritance: проверить effective config заранее, не удалять CSP/security headers. App headers и auth/cookie settings сохраняются.
+- Operator IP bypass удалён. Авторизованные проверки браузером не выполняются через публичный ingress во время maintenance; доступен только существующий private listener для read-only smoke. Не копировать owner cookies для такого smoke.
+- Если marker отсутствует, cacheable response/redirect/200, TLS/DNS/network error, old worker не завершился — gate FAIL. До DDL вернуть исходные state/flag/config, проверить HTTP/mirror/backup/frozen=false. Не стартовать unit, который был inactive до окна.
+- После DDL при неуспехе разрешён только совместимый app rollback. PostgreSQL не понижать и не восстанавливать backup поверх production.
+
+Подготовленное локальное исправление не является разрешением его применить. До нового решения владельца — NO-GO.
+
+## Критерии GO / NO-GO
+
+- **GO к merge maintenance PR:** review ограниченного diff, отсутствие секретов/локальных данных, полный regression и реальный isolated nginx integration без skips; отдельное разрешение владельца на merge. Это не разрешение deployment.
+- **GO к активации flag:** согласованное окно и exact application/operator artifacts; свежий baseline и compatibility gate; flag отсутствует, nginx -t успешен; все прежние worker PIDs (включая уже shutting down workers) завершились; master не сменился неожиданно; полный status/location baseline сохранён и каждый origin/route возвращает новый уникальный generation marker. Один marker не заменяет retirement.
+- **GO к freeze/stop/backup:** все 168 внешних read-only probes дают 503 с exact markers, no-store и Retry-After; отсутствуют public IP bypass и альтернативный внешний ingress к Node. Приватный listener подтверждён как loopback-only; технические probes не меняют данные/сессии.
+- **GO к live DDL/switch:** завершён drain/stop, свежий backup проверен и действительно восстановлен в изолированную БД/Covers; совпадают hashes/inventory/auth integrity; exact candidate и rollback совместимы с фактической/целевой схемой.
+- **GO к открытию ingress:** schema/grants 7, startup/private smoke, after compatibility gate, данные/Covers/сессии, mirror и backup states проверены; собственный freeze явно снят. Flag удаляется без reload, затем полный armed baseline и публичный HTTP smoke; пользовательская сессия и разрешённый Bug Report проверяются после открытия. Inbox и первое ежедневное письмо остаются отдельными acceptance gates.
+- **NO-GO:** отсутствующее evidence, незавершённый worker, неполный baseline, неверный marker/status, ошибка TLS/DNS/timeout, неожиданное изменение конфигурации/данных или fail обязательного gate. Не повторять failed probe до случайного успеха. Безопасный отказ и rollback — по фазе, без автоматического PostgreSQL restore/down migration.
+
+## Воспроизводимые локальные проверки
+
+Node 24; `NGINX_TEST_BIN` указывает на отдельный nginx 1.24.0 с HTTP SSL и realip modules, `OPENSSL_TEST_BIN` при необходимости — на локальный openssl. Выполнить `NGINX_TEST_BIN=/absolute/path/to/nginx node --test tests/*.test.mjs`. Без переменной real-nginx suite skipped и release validation не засчитывается. Fixture слушает только loopback на случайных портах, создаёт временный сертификат, использует synthetic upstream и удаляет временные файлы. Production env/PG/Sheets/SMTP не используются.

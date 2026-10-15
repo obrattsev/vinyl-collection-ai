@@ -1,5 +1,7 @@
 # Stage 4C — local implementation
 
+> Актуализация 15.10.2026: Stage 4C — DONE / PRODUCTION GO. Первоначальный выпуск `40ab34a19cd5d93d1c635ce1ee766011fc321e31`, затем routing/security fix PR #31; текущий production `f593b3f6e86d81f53fd4e490f87bf8c39b136ebc`. [Production report](stage-4c-production.md). Roadmap: 4A/4B/4C DONE → 4D UX / DATA POLISH NEXT → 4E PUBLIC PAGES / SEO PLANNED → 5A → 5B → 5C → 5D. Старые статусы и планы ниже — исторические; при расхождении действуют эта запись и основной backlog. Разрешены только локальные изменения документации; код 4D, commit/push/PR/merge и production operations ожидают отдельных разрешений.
+
 > Актуализация 12.10.2026: функциональность и UI Stage 4C приняты владельцем. Разрешена локальная Postbox-проверка на ранее согласованный адрес; прежний запрет реальных локальных отправок заменён этим разрешением. SMTP TLS/auth проверены; владелец подтвердил реальную доставку, регистрацию и recovery с отзывом прежней сессии. Production readiness gates остаются в отчёте. Stage 4C открыт; Git finalization и deployment запрещены. [Текущий отчёт и checkpoint](stage-4c-release-readiness.md).
 
 Статус: базовые auth/session/изоляция приняты владельцем; личный кабинет, canonical URL, цена продажи и реальная доставка Postbox ещё требуют acceptance. Stage 4C не закрыт. Ветка `feature/stage-4c-auth`. Commit/push/PR/merge/deploy не разрешены до следующего checkpoint. Production остаётся Stage 4B; Yandex/DNS/реальные письма не изменялись.
@@ -106,7 +108,7 @@ Hard delete требует текущий пароль и `confirm:true`. В о�
 ## Локальная acceptance — 12.10.2026
 
 Текущий стенд: http://127.0.0.1:8046/ . Постоянная fixture-папка вне Git:
-`/Users/obrattsev/vinyl-collection-config/stage4a-local/vinyl-4c-acceptance-izG2e5`.
+`<LOCAL_ACCEPTANCE_DIR>`.
 
 Старая temporary папка отсутствовала после перерыва; существующие БД не удалялись и не пересевались. Новый стенд создан в отдельной DB через `scripts/pg-auth-acceptance.mjs`, с `PG_AUTH_ACCEPTANCE_PARENT` на постоянную папку. Скрипт требует dedicated localhost:55464 admin; runtime ограничен, env 0600. В production не обращались.
 
@@ -115,19 +117,19 @@ Hard delete требует текущий пароль и `confirm:true`. В о�
 Повторный запуск без сброса:
 
 ```sh
-/Users/obrattsev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --env-file=/Users/obrattsev/vinyl-collection-config/stage4a-local/vinyl-4c-acceptance-izG2e5/restart.env server/index.mjs
+node --env-file=<LOCAL_ACCEPTANCE_DIR>/restart.env server/index.mjs
 ```
 
 Если user-local PG остановлен, запустить существующий cluster с прежним портом (system service не требуется):
 
 ```sh
-/Users/obrattsev/vinyl-collection-config/stage4a-local/runtime/bin/pg_ctl -D /Users/obrattsev/vinyl-collection-config/stage4a-local/data -l /Users/obrattsev/vinyl-collection-config/stage4a-local/postgres.log -o '-h 127.0.0.1 -p 55464' start
+<LOCAL_PG_DIR>/runtime/bin/pg_ctl -D <LOCAL_PG_DIR>/data -l <LOCAL_PG_DIR>/postgres.log -o '-h 127.0.0.1 -p 55464' start
 ```
 
 Для OTP только локальный capture:
 
 ```sh
-/Users/obrattsev/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/read-local-mail.mjs /Users/obrattsev/vinyl-collection-config/stage4a-local/vinyl-4c-acceptance-izG2e5 cabinet_test@example.test
+node scripts/read-local-mail.mjs <LOCAL_ACCEPTANCE_DIR> cabinet_test@example.test
 ```
 
 Короткая ручная приёмка:

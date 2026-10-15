@@ -1,11 +1,8 @@
 # Backlog Vinyl Collection AI
 
-> Актуализация 12.10.2026: функциональность и UI Stage 4C приняты владельцем. Разрешена локальная Postbox-проверка на ранее согласованный адрес; прежний запрет реальных локальных отправок заменён этим разрешением. SMTP TLS/auth проверены; владелец подтвердил реальную доставку, регистрацию и recovery с отзывом прежней сессии. Production readiness gates остаются в отчёте. Stage 4C открыт; Git finalization и deployment запрещены. [Текущий отчёт и checkpoint](stage-4c-release-readiness.md).
+> Актуализация 15.10.2026: Stage 4C — DONE / PRODUCTION GO. Первоначальный выпуск `40ab34a19cd5d93d1c635ce1ee766011fc321e31`, затем routing/security fix PR #31; текущий production `f593b3f6e86d81f53fd4e490f87bf8c39b136ebc`. [Production report](stage-4c-production.md). Roadmap: 4A/4B/4C DONE → 4D UX / DATA POLISH NEXT → 4E PUBLIC PAGES / SEO PLANNED → 5A → 5B → 5C → 5D. Старые статусы и планы ниже — исторические; при расхождении действуют эта запись и основной backlog. Разрешены только локальные изменения документации; код 4D, commit/push/PR/merge и production operations ожидают отдельных разрешений.
 
-Актуальный статус 3E: deployment 02.10.2026 выполнен, технический production smoke пройден; [отчёт](stage-3e-production.md). Финальная визуальная production acceptance подтверждена владельцем; Stage 3 закрыт. 4A реализован и принят владельцем по local acceptance; 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C реализуется локально, acceptance владельца ожидается; остальные задачи 4D–4F и Stage 5 не начаты.
-
-
-Backlog описывает текущее состояние продукта и согласованный roadmap. Этапы 1–3 выполнены; архитектура Stage 4 согласована, 4A реализован и принят по local acceptance, 4B принят владельцем и завершён; production cutover и data verification выполнены 04.10.2026; 4C реализуется локально, acceptance владельца ожидается; остальные задачи 4D–4F и Stage 5 не начаты. Статусы пакетов этапа 3 указаны отдельно. Для будущих задач согласование направления не означает готовность подробной спецификации или реализации. Действующие спецификации определяют поведение операций; новые требования уточняются перед реализацией.
+Этот документ — основной backlog и roadmap. История этапов 1–3 сохранена; активные требования 4/5 находятся ниже. Подробнее: [план 4D](stage-4d-plan.md).
 
 ## Этап 1 — Полный локальный MVP без AI на реальных Google Sheets
 
@@ -105,6 +102,421 @@ Collection: «Показать всю коллекцию». Wish-list: «Пок�
 ### 3.15. Daily Quote и компактный заголовок — пакет 3D
 
 Реализовано и развёрнуто: curated JSON, стабильный выбор по локальному дню и section, смена в полночь без cron/AI, graceful fallback. Большой heading скрыт визуально, semantic h1 сохранён. Первоначальный каталог из 10 цитат согласован владельцем и подключён к стенду и production; переносы сохранены, фон блока светло-серый. [Приёмка](stage-3d-acceptance.md).
+
+## Этап 4 — PostgreSQL и многопользовательский режим
+
+**Статус 15.10.2026:** 4A — DONE; 4B — DONE; 4C — DONE; 4D — NEXT; 4E — PLANNED. PostgreSQL — единственный основной источник данных; Google Sheets — резервное одностороннее зеркало владельца и отдельное хранилище Bug Reports. Без параллельной разработки. Roadmap находится в этом документе.
+
+### 4A — PostgreSQL Foundation — DONE
+
+Schema, migrations, owner-scoped repositories, atomic revisions/Transfer, importer и integration tests реализованы и приняты. [История и acceptance](stage-4a-postgresql.md), PR #25. Исторический результат 416 tests; это не текущий test run.
+
+### 4B — PostgreSQL Production Migration — DONE
+
+Cutover 04.10.2026, release `2ccb47b`, PR #26. PG — source of truth, PG→Sheets mirror, backup 7 daily + 4 weekly и restore rehearsal. [Production report](stage-4b-production.md). Исторические ограничения auth bridge заменены 4C.
+
+### 4C — Multi-user Accounts & Authentication — DONE
+
+Landing, принятый UI Collection/Wish-list, registration/OTP/login/logout/recovery, кабинет, PG sessions, Argon2id, CSRF/Origin/rate limits/enumeration protection, owner isolation, публичность, salePrice, смена пароля, самостоятельное удаление и restore quarantine/recovery завершены. [Production report](stage-4c-production.md): первый закрытый runtime `40ab34a`, последующий PR #31 и текущий runtime `f593b3f`. Переданные smoke результаты отделены от текущей read-only проверки; расширенные проверки остановлены владельцем и не заявляются выполненными.
+
+Обязательный независимый S3 deletion ledger и Limited mode — **superseded**, не release blockers. Принят риск возврата удалённого аккаунта/данных из старого PG backup. Существующие quarantine/recovery и account deletion сохраняются. Необязательное редактирование ФИО — **deferred**, вне обязательного 4D до отдельного решения. Старый 4F объединён с 4E; дополнительного этапа нет.
+
+### 4D — UX / DATA POLISH — NEXT
+
+Цель — точечное улучшение принятого интерфейса, данных и выпуска для реальных пользователей. Без redesign, AI и новой инфраструктуры. Зависит от DONE 4C. Все результаты ниже — аудит кода, не новая browser acceptance. API по умолчанию — существующий внутренний API; внешние API/расходы отсутствуют, кроме явно указанных. Общий privacy/security риск — сохранение owner isolation и согласованного public projection.
+
+#### 4D.1. Обложки
+
+**Приоритет HIGH; статус PARTIAL; зависимость 4C.** Результат: Add label «Добавить обложку»; в confirmation отсутствует неактивная «Убрать файл»; при редактировании существующей записи доступно «Удалить обложку». Отдельный рабочий Cover flow сохранить. Код: `prototype/index.html`, `wishlist.html`, `cover-ui.mjs`, `app.js`; сейчас Add label и clear button прежние, удаление уже существует отдельно в Cover dialog, но не является действием Edit формы. Повторно backend deletion не разрабатывать.
+
+Приёмка: оба списка, desktop/mobile, no-cover/uploaded/replaced/deleted/upload-error; правильный draft и confirmation, отсутствие случайного metadata save и orphan resources. API: существующие metadata/Covers. Риск: DB/filesystem и независимые metadata/Cover операции; определить UX удаления в Edit до реализации, если компонент неоднозначен.
+
+#### 4D.2. Формы добавления и редактирования
+
+**Приоритет MEDIUM; статус TODO; зависимость 4C.** Результат: Add CTA «Добавить», Edit CTA «Изменить», оба сохраняют существующий preview/confirmation; убрать «0 — бесплатно» и примеры года выпуска/даты покупки без смены validation. Сейчас CTA «Проверить и просмотреть», placeholders `YYYY`, `DD.MM.YYYY`, `0 — бесплатно` остаются в `prototype/app.js` и HTML. Более новое требование убрать примеры заменяет старое предложение добавлять «Например, …»; маску/допустимый формат не менять.
+
+Приёмка: Collection/Wish-list Add/Edit на desktop/mobile, ноль остаётся валидной ценой, cancellation/conflict/draft не меняются, до confirmation нет writes. API: существующий CRUD. Риск: принять переименование кнопки за немедленное сохранение.
+
+#### 4D.3. Фильтры и жанры
+
+**Приоритет MEDIUM; статус PARTIAL; зависимость 4C.** Результат: filter genres только из доступного текущего списка и по частоте; Add/Edit допустимые GENRES ранжируются по частоте своего Collection+Wish-list, при равенстве стабильно по алфавиту, неиспользованные допустимые варианты остаются ниже. Private данные другого пользователя не используются. Для публичного visitor ranking — только разрешённая проекция, без обращения к закрытому второму списку.
+
+Код сейчас заполняет filter/Add/Edit из статического GENRES. **DONE по чтению кода:** `form reset → resetResults` снимает favorite-only. Повторную реализацию снятия через «Очистить» не создавать; оставить regression. Старое дополнительное требование очищать остальные фильтры при снятии самого checkbox — **deferred** до отдельного UX-решения; стартовое задание требует снятия через «Очистить».
+
+Приёмка: пусто/одна запись/оба genre fields/несколько жанров/равная частота/no favorites/комбинированные фильтры; «Очистить» снимает избранное и сохраняет согласованное исходное поведение reset. Не менять загрузку каталога без согласования. A/B/guest не получают чужие жанры. API: existing scoped reads; не ослаблять visibility ради ranking. Риск: утечки через частоты и устаревший state после logout/смены пользователя; единицу подсчёта двух совпадающих genre fields уточнить в локальной спецификации.
+
+#### 4D.4. Тексты и подсказки
+
+**Приоритет MEDIUM; статус TODO; зависимость 4C.** Результат: убрать «Найдите нужные пластинки…» из согласованного mobile интерфейса обоих списков; desktop сохранить, если достаточно responsive CSS. Текст присутствует в обоих HTML; это не новая задача полного переписывания интерфейса.
+
+Приёмка: обе секции и размеры экрана, нет лишних пробелов/пустых блоков, остальные согласованные подписи 4D.1/2 проверены без дублей задач. API: нет. Риск: удалить другой intro/не тот variant; при неоднозначности согласовать конкретный компонент.
+
+#### 4D.5. Визуальная приёмка
+
+**Приоритет MEDIUM; статус PARTIAL / ACCEPTANCE PENDING; зависимость 4D.1–4.** Результат: подтверждение сохранения дизайна Collection/Wish-list и главной, desktop/mobile, responsive spacing/type/loading/empty/error.
+
+**DONE:** файл `prototype/assets/quote-background.webp` существует, просмотрен — потёртые виниловые конверты; `server/app.mjs` разрешает asset, `styles.css` подключает его к `.collection-surface .daily-quote` и mobile variant. В `landing.html` отдельного блока цитат нет; там композиция пяти обложек. Поэтому не считать соответствие формулировке «блок цитат на главной» доказанным. Результат в браузере и соответствие принятому макету в этом цикле не проверялись. Не генерировать новое изображение/дизайн; подтвердить целевой блок с владельцем на acceptance.
+
+Приёмка: screenshot review заданных viewport и всех состояний без redesign; изображение читаемо и текст контрастен. API: нет новых. Риск: смешать root landing и страницы коллекций.
+
+#### 4D.6. Тестирование и локальная приёмка
+
+**Приоритет HIGH; статус PLANNED; зависимость 4D.1–5,7,8.** Результат: подходящие regression/UI/security tests, PG integration при изменении данных, owner/guest isolation, privacy, desktop/mobile, npm audit, diff review и `git diff --check`. Baseline из PR #31: 433/433 + 87/87, не новый прогон.
+
+Приёмка: новые сценарии и существующие обязательные suites проходят, ограничения явно отмечены; владелец принимает локальный результат. API: mocks/capture и существующая маркированная test PG DB, без реального owner destructive tests. Риск: принятие локальных mocks за реальную SMTP доставку; production tests только по отдельному запросу.
+
+#### 4D.7. Безопасные production releases
+
+**Приоритет HIGH; статус ANALYZED / TODO; зависимость 4C; первым в плане.** Цель — воспроизводимое обновление с минимально возможным downtime и сохранением данных/сессий. Сейчас один Node process за nginx, immutable release directories, current symlink, systemd restart, отдельные env/Covers и PG sessions; helpers freeze/backup/migrate уже есть. Универсального подтверждённого migration compatibility gate и автоматизированного release smoke checklist пока нет. Zero-downtime не обещается.
+
+Результат: простой operator runbook и минимальные локальные helpers на существующем stack: закреплённый artifact + подготовка dependencies до окна; preflight, свежий проверенный backup, additive migration compatibility gate, короткое окно переключения/restart, автоматизированный read-only smoke; rollback только к совместимому приложению без destructive DB rollback. AUTH_SECRET/PG session data не ротировать при обычном выпуске. Mirror и backup timer должны вернуться в прежнее согласованное состояние и проверяться после выпуска. [Конкретное предложение и checklist](stage-4d-plan.md).
+
+Приёмка: локально воспроизведён успешный upgrade и неуспешный smoke→совместимый app rollback; сессия обычного пользователя сохраняется, несовместимая schema останавливает выпуск до switch; данные/Covers/mirror state не теряются, timers восстановлены; зафиксированы фактическое окно недоступности и STOP rules. API: existing app/PG/systemd/SMTP config, без новых services. Риски: locks/DDL latency, in-flight requests, несовместимый старый binary; destructive migrations требуют отдельного решения и окна. Production changes отдельно согласуются.
+
+#### 4D.8. Отчёт об ошибке и email-уведомления
+
+**Приоритет HIGH; статус PARTIAL; зависимость 4C и release plan 4D.7.** Цель — сохранить принятый report и уведомить владельца через существующий Yandex Cloud Postbox.
+
+**DONE по коду:** `prototype/app.js` скрывает кнопку от unauthenticated; `server/app.mjs` вызывает `requireOwner` (в multiuser это authenticated session+CSRF), лимит report и body 16 KiB; `server/bug-reports.mjs` валидирует и сохраняет в отдельный Sheets через очередь+appendVerified; существующий plain text/stringValue и лимит 2000 символов сохраняются. Busy/disabled кнопка защищает только от одновременного submit в одном UI. Отсутствует полноценная повторная идемпотентность после потери ответа.
+
+**TODO:** передавать user identity только из server session, сохранять её и страницу (текущая schema имеет только id/time/text/section/version); настроить фиксированного получателя; уведомление с датой/временем, user id или email, описанием и проверенной страницей. From — существующий верифицированный отправитель Postbox, пользовательский текст только body, не headers/From/recipient. Проверить auth/CSRF/Origin, rate limits, повторные запросы и timeout, HTML/header injection, отсутствие secrets. Существующий SMTP adapter для auth не переписывать целиком.
+
+Сбой SMTP после сохранения не превращает принятый report в потерянный или повод повторно создавать его. Предпочтение: минимальный persistent pending/sent status и ограниченные retries в существующем процессе; выбрать размещение рядом с текущим report storage после проверки API/схемы, без новой очереди/сервиса. Документировать неоднозначный SMTP timeout: exactly-once delivery не обещать. Acceptance: один согласованный тестовый report сохранён, email реально доставлен на указанный владельцем адрес; SMTP down/timeout/restart не теряют report, retries не создают повторных reports, ошибки санитизированы. Реальное письмо только в отдельно согласованной acceptance; сейчас не отправлять.
+
+API: существующие Google Sheets и Yandex Cloud Postbox SMTP; recipient ещё не выбран для этой функции, не предполагать по старому owner email. Риски: reports содержат персональные данные; минимизация identity, доступ/retention для Sheets/email, SMTP quotas, дубликат письма при ambiguous timeout. Дополнительные provider/cloud ресурсы не нужны.
+
+### 4E — PUBLIC PAGES / SEO — PLANNED
+
+Зависит от принятого и закрытого 4D. Цель — индексируемые public страницы без раскрытия private данных. Персональные URLs `/{login}/collection`, `/{login}/wishlist`, resolver/aliases и разграничение уже реализованы в 4C/PR #31; их не создавать заново. Collection индексируется; ранее согласованный Public Wish-list **noindex и вне sitemap** сохраняется до отдельного решения, metadata остаются корректными. Нового frontend framework и отдельных album pages нет. Все задачи HIGH для privacy, MEDIUM для остальных; статус каждой ниже указан отдельно; внешние API не нужны, кроме необязательной внешней post-deploy проверки поисковиков.
+
+#### 4E.1. Server-side rendering — PARTIAL
+
+Цель/результат: каталог public Collection в initial HTML через небольшой renderer текущего Node stack. Сейчас сервер выдаёт template/profile context, каталог загружается клиентом; public routing DONE, индексируемый каталог TODO. Зависимости: 4D. Приёмка: raw HTML без JS содержит только public allowlist; desktop/mobile и client search/sort/CSV/Streaming/Quote работают; owner management сохраняется. Риск: XSS, двойное состояние и private projection; API: existing public scoped reads.
+
+#### 4E.2. SEO metadata — PARTIAL
+
+Цель/результат: title/description/headings/canonical для root и персональных public URL; статические titles не считать полноценной реализацией. Зависит от 4E.1. Приёмка: уникальная escaped metadata, canonical без tracking/search дублей, корректные metadata Wish-list при noindex, auth/private не индексируются. Риск: вывести email/ФИО/покупки в metadata; API: нет новых.
+
+#### 4E.3. Robots и sitemap — TODO
+
+Результат: robots.txt и dynamic sitemap.xml только для допустимых public активных Collection и root; private/auth/account/API/technical/Wish-list исключены. Зависит от 4E.1/2. Приёмка: XML валиден, закрытие/удаление исключает URL, robots не подменяет auth. Риск: sitemap/cache после privacy change; API: existing scoped DB read.
+
+#### 4E.4. OpenGraph — TODO
+
+Результат: escaped title/description/URL и доступное public image при наличии. Зависит от 4E.2/5. Приёмка: private cover не попадает в OG, корректный fallback без обложки, персональные canonical URLs. Риск: social crawler cache; API: existing authorized Covers, без внешней выгрузки private images.
+
+#### 4E.5. Приватность и индексация — PARTIAL, HIGH
+
+Результат: распространить существующий server authorization на SSR/metadata/sitemap/cache. Зависит от 4E.1–4; тесты проектировать вместе с renderer. Приёмка A/B/guest: закрытые списки/Covers/CSV, toggle visibility, deleted/nonexistent account не раскрываются ни в HTML, ни в metadata/sitemap; salePrice только при разрешении; Email/ФИО/purchase/storeUrl/record UUID не публикуются. Риск: публичный кеш чужой owner projection; API: existing auth/public projection.
+
+#### 4E.6. HTTP и SEO-корректность — PARTIAL
+
+Результат: проверить существующие GET/HEAD/status/aliases/redirects и добавить SEO tests, canonical/query/noindex rules. Зависит от 4E.1–5. Приёмка: корректные 404 для private/nonexistent по принятому контракту, никаких session-dependent permanent redirects, duplicate URL не индексируются, служебные/API страницы исключены, escaped SSR. Проверить favicon/alt/semantic headings и сохранение release/backup readiness. Search Console/Яндекс Вебмастер/submission — отдельные согласованные post-deploy операции, не выполнены. Риск: кэш редиректа и stale sitemap; API: внутренние HTTP checks.
+
+## Этап 5 — AI / MUSIC DATA
+
+**Статус: PLANNED, не начат.** Строго после всего Stage 4: **5A → 5B → 5C → 5D**. Каждый подэтап принимается отдельно. Направления согласованы; API, тарифы, лицензии и модель проверяются непосредственно перед реализацией. Ниже план исследований, не утверждение о текущих возможностях/ценах providers. Существующие Node.js/TypeScript/PostgreSQL + внешние music/LLM/Vision APIs по необходимости; без Redis/vector DB/локальных LLM/AI microservice/Kubernetes/новой очереди. Timeout, bounded retries/rate limits/cache, cost caps и sanitized logs; внешние сбои не блокируют обычный CRUD. Минимизация данных пользователя обязательна.
+
+### 5A — Поиск обложки — PLANNED, приоритет 1
+
+Цель: MusicBrainz + Cover Art Archive предлагают различимые конкретные релизы и обложки; пользователь подтверждает выбор в Add/Edit. Vinyl format, год/страна/лейбл/catalogue/barcode учитываются при наличии; отсутствие полей не означает разрешения расширить модель. Ручная загрузка остаётся. Недостаток данных не позволяет обещать точный прессинг. Общий gate: права на изображения и privacy запросов проверены до публичного использования.
+
+#### 5A.1. API и условия
+
+**Приоритет HIGH; статус PLANNED; зависит от 4E.** Цель и конкретный результат: проверить MusicBrainz/CAA endpoints, limits и условия
+
+Приёмка: записаны актуальные первичные источники и политика запросов. API: MusicBrainz, CAA. Риски: изменение условий/доступности.
+
+#### 5A.2. Поиск кандидатов
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5A.1.** Цель и конкретный результат: запрос по данным карточки
+
+Приёмка: кандидаты найдены без private purchase data. API: MusicBrainz. Риски: неполные/одноимённые albums.
+
+#### 5A.3. Ранжирование релизов
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5A.2.** Цель и конкретный результат: объяснимое сопоставление имеющихся edition признаков
+
+Приёмка: неоднозначность видна, точное издание не выдумано. API: MusicBrainz. Риски: неверный pressing.
+
+#### 5A.4. Обложки кандидатов
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5A.1–3.** Цель и конкретный результат: получение доступных изображений
+
+Приёмка: no-cover и недоступный asset обработаны. API: CAA. Риски: размер/права изображений.
+
+#### 5A.5. Выбор релиза
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5A.3/4.** Цель и конкретный результат: UI различимых изданий
+
+Приёмка: показаны имеющиеся год/страна/лейбл/номер, выбор явный. API: внутренний API. Риски: смешение album и release.
+
+#### 5A.6. Интеграция Add/Edit
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5A.5.** Цель и конкретный результат: подтверждённая обложка в существующем flow
+
+Приёмка: нет автоматического сохранения, ручная загрузка работает. API: existing CRUD/Covers. Риски: orphan cover/conflict.
+
+#### 5A.7. Cache и request control
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5A.1.** Цель и конкретный результат: ограниченный cache и throttling
+
+Приёмка: timeouts/429/retries проверены, лимиты документированы. API: MusicBrainz, CAA. Риски: устаревание/рост storage.
+
+#### 5A.8. Ошибки и неоднозначность
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5A.2–7.** Цель и конкретный результат: empty/error/cancel/fallback состояния
+
+Приёмка: API down не блокирует редактирование. API: внутренний API. Риски: повторные запросы.
+
+#### 5A.9. Права на изображения
+
+**Приоритет HIGH; статус PLANNED; зависит от 5A.1.** Цель и конкретный результат: проверка лицензий/атрибуции/хранения
+
+Приёмка: условия зафиксированы, неподтверждённые права вынесены на решение. API: CAA/первичные условия. Риски: copyright/licensing.
+
+#### 5A.10. Тесты и acceptance
+
+**Приоритет HIGH; статус PLANNED; зависит от 5A.6–9.** Цель и конкретный результат: автотесты и пользовательская проверка
+
+Приёмка: различимые варианты, явный выбор, ручной fallback, privacy и failure tests проходят. API: mocks + согласованные API checks. Риски: недостаточное покрытие.
+
+### 5B — Цитаты из песен — PLANNED, приоритет 2
+
+Цель: выбрать пластинку из Collection, определить треки, получить законно используемые данные о lyrics и короткую реальную цитату; ежедневная ротация с curated fallback. MusicBrainz/LRCLIB/Groq Cloud — кандидаты. Наличие текста в API не разрешает публикацию. Полные lyrics не хранить/публиковать без прав. Если законный способ не подтверждён, согласовать безопасную альтернативу до реализации public display. Не включать Wish-list автоматически.
+
+#### 5B.1. API и права
+
+**Приоритет HIGH; статус PLANNED; зависит от 5A.** Цель и конкретный результат: проверить MusicBrainz/LRCLIB/AI terms, copyright и допустимый public excerpt
+
+Приёмка: права подтверждены либо предложена согласованная альтернатива. API: MusicBrainz, LRCLIB, Groq candidate. Риски: лицензия/полные lyrics.
+
+#### 5B.2. Выбор пластинки
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.1.** Цель и конкретный результат: выбор из разрешённой Collection
+
+Приёмка: не используются чужие private записи. API: existing Collection API. Риски: privacy outbound data.
+
+#### 5B.3. Трек-лист
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.2.** Цель и конкретный результат: сопоставление подходящего релиза
+
+Приёмка: неподтверждённый релиз помечен неоднозначным. API: MusicBrainz. Риски: неверные tracks.
+
+#### 5B.4. Lyrics data
+
+**Приоритет HIGH; статус PLANNED; зависит от 5B.1/3.** Цель и конкретный результат: получение только разрешённых данных
+
+Приёмка: нет хранения/публикации полных текстов без прав. API: LRCLIB candidate. Риски: copyright/cache retention.
+
+#### 5B.5. Выбор короткой цитаты
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.4.** Цель и конкретный результат: проверяемый excerpt и авторство
+
+Приёмка: нет выдуманных строк, длина/использование соответствуют правам. API: AI provider при необходимости. Риски: hallucination/attribution.
+
+#### 5B.6. Cache
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.1/5.** Цель и конкретный результат: минимальный cache разрешённых результатов
+
+Приёмка: TTL/retention/права соблюдены. API: existing PG. Риски: лишнее хранение lyrics.
+
+#### 5B.7. Ежедневная ротация
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.6.** Цель и конкретный результат: обновление в согласованной timezone
+
+Приёмка: одна предсказуемая цитата за день. API: existing Node/PG. Риски: timezone boundary.
+
+#### 5B.8. Повторы
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.7.** Цель и конкретный результат: учёт недавних excerpts
+
+Приёмка: частые повторы исключены при наличии вариантов. API: existing PG. Риски: малый каталог.
+
+#### 5B.9. Fallback
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.5.** Цель и конкретный результат: сохранить curated quotes
+
+Приёмка: no-result/API down не ломают сайт. API: existing quote catalog. Риски: зависимость UI от API.
+
+#### 5B.10. Расходы
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5B.1.** Цель и конкретный результат: лимиты AI tokens/requests и budget ceiling
+
+Приёмка: при исчерпании budget работает fallback. API: выбранный AI API. Риски: AI costs/provider limits.
+
+#### 5B.11. Приватность
+
+**Приоритет HIGH; статус PLANNED; зависит от 5B.2/7.** Цель и конкретный результат: ограничение выбора и публичной выдачи
+
+Приёмка: private Collection не раскрывается через цитату/логи. API: existing auth/Collection. Риски: косвенное раскрытие tastes.
+
+#### 5B.12. Тестирование
+
+**Приоритет HIGH; статус PLANNED; зависит от 5B.5–11.** Цель и конкретный результат: licensing/privacy/fallback/rotation/cost acceptance
+
+Приёмка: реальное авторство, failure и budget tests проходят. API: mocks/согласованные checks. Риски: непроверенные права.
+
+### 5C — Добавление по фото — PLANNED, приоритет 3
+
+Цель: фото → вероятные artist/album → MusicBrainz candidates → предварительное заполнение существующей формы → проверка/исправление → подтверждение пользователя. Vision не доказывает конкретный pressing. Ручной Add независим от Vision. Загружаемые фото private по умолчанию, условия передачи внешней модели изучаются до интеграции.
+
+#### 5C.1. Vision API
+
+**Приоритет HIGH; статус PLANNED; зависит от 5B.** Цель и конкретный результат: сравнить актуальные стоимость, лимиты, retention и доступность
+
+Приёмка: provider и budget согласованы. API: Vision candidates. Риски: costs/privacy/vendor terms.
+
+#### 5C.2. Загрузка фото
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.1.** Цель и конкретный результат: выбор фото в существующем Add flow
+
+Приёмка: cancel не создаёт запись. API: existing app. Риски: неверный UI component.
+
+#### 5C.3. Безопасность файла
+
+**Приоритет HIGH; статус PLANNED; зависит от 5C.2.** Цель и конкретный результат: проверить content type/размер/декодирование
+
+Приёмка: недопустимые файлы отклонены, bounded processing. API: existing image processing. Риски: malformed/decompression abuse.
+
+#### 5C.4. Artist и album
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.3.** Цель и конкретный результат: извлечение вероятных значений
+
+Приёмка: предположения явно помечены. API: Vision API. Риски: hallucination.
+
+#### 5C.5. MusicBrainz
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.4.** Цель и конкретный результат: поиск releases по распознанным данным
+
+Приёмка: есть candidates/no-result. API: MusicBrainz. Риски: неверное издание.
+
+#### 5C.6. Выбор кандидата
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.5.** Цель и конкретный результат: UI сравнения вариантов
+
+Приёмка: только явный выбор пользователя. API: existing app. Риски: одинаковые cover variants.
+
+#### 5C.7. Предзаполнение
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.6.** Цель и конкретный результат: draft существующей формы
+
+Приёмка: сохраняются validation/duplicates/confirmation. API: existing CRUD. Риски: слепая запись.
+
+#### 5C.8. Неопределённость
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.4–7.** Цель и конкретный результат: показать сомнительные поля
+
+Приёмка: нет утверждения о точном pressing без данных. API: existing UI. Риски: ложная уверенность.
+
+#### 5C.9. Ручные правки
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.7.** Цель и конкретный результат: сохранить ручной Add/Edit
+
+Приёмка: работает без Vision и после отказа распознавания. API: existing CRUD. Риски: API blocking CRUD.
+
+#### 5C.10. Расходы
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.1/3.** Цель и конкретный результат: ограничить запросы/размер и budget
+
+Приёмка: лимиты срабатывают до платного запроса, fallback доступен. API: Vision API. Риски: AI costs/retry storms.
+
+#### 5C.11. Приватность фото
+
+**Приоритет HIGH; статус PLANNED; зависит от 5C.1/2.** Цель и конкретный результат: минимизация retention/EXIF/доступа и передачи provider
+
+Приёмка: чужое фото недоступно, правила удаления документированы. API: Vision + existing storage. Риски: personal data/provider retention.
+
+#### 5C.12. Тестирование
+
+**Приоритет HIGH; статус PLANNED; зависит от 5C.3–11.** Цель и конкретный результат: file/privacy/failure/confirmation acceptance
+
+Приёмка: photo candidates исправимы, без confirmation записи нет, ручной Add работает. API: mocks/согласованные checks. Риски: неполная recognition accuracy.
+
+### 5D — Поиск естественным языком — PLANNED, приоритет 4
+
+Цель: фраза пользователя → LLM → ограниченные structured filters → server validation → parameterized application query → PostgreSQL. **LLM не генерирует исполняемый SQL.** Примеры: «британский рок семидесятых», «джаз, купленный в прошлом году», «мои Pink Floyd», «пластинки на продажу»; поддержка определяется фактическими полями, отсутствующие признаки не выдумывать. Обычные фильтры остаются fallback.
+
+#### 5D.1. Поля и фильтры
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5C.** Цель и конкретный результат: инвентаризация Collection model/query capabilities
+
+Приёмка: известно, какие примеры выразимы текущей моделью. API: existing model/PG. Риски: расширение scope.
+
+#### 5D.2. Типы запросов
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5D.1.** Цель и конкретный результат: согласовать поддержанные фразы и time semantics
+
+Приёмка: неподдержанные признаки явно объясняются. API: existing UI. Риски: неоднозначность года/страны/продажи.
+
+#### 5D.3. Строгая схема
+
+**Приоритет HIGH; статус PLANNED; зависит от 5D.2.** Цель и конкретный результат: allowlist fields/operators/length/ranges
+
+Приёмка: unknown fields, SQL и owner selector запрещены. API: structured JSON schema. Риски: schema bypass.
+
+#### 5D.4. LLM parsing
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5D.3.** Цель и конкретный результат: текст → structured filters
+
+Приёмка: выход модели не исполняется напрямую. API: выбранный LLM API. Риски: prompt injection/provider outage.
+
+#### 5D.5. Валидация
+
+**Приоритет HIGH; статус PLANNED; зависит от 5D.3/4.** Цель и конкретный результат: проверка schema/semantics/limits на сервере
+
+Приёмка: malformed/unsupported filters отклоняются. API: existing server. Риски: untrusted model output.
+
+#### 5D.6. Query builder
+
+**Приоритет HIGH; статус PLANNED; зависит от 5D.5.** Цель и конкретный результат: parameterized query из проверенных filters
+
+Приёмка: LLM SQL нигде не исполняется, queries bounded. API: existing PG. Риски: SQL injection/expensive query.
+
+#### 5D.7. Owner isolation
+
+**Приоритет HIGH; статус PLANNED; зависит от 5D.6.** Цель и конкретный результат: user scope только из session
+
+Приёмка: A не получает private B независимо от prompt. API: existing auth/scoped repositories. Риски: data exfiltration.
+
+#### 5D.8. Ввод запроса
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5D.2/5.** Цель и конкретный результат: небольшой UI рядом с обычным поиском
+
+Приёмка: keyboard/mobile/error states доступны. API: existing app. Риски: redesign/UX overload.
+
+#### 5D.9. Интерпретация
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5D.8.** Цель и конкретный результат: показать распознанные filters и неоднозначность
+
+Приёмка: пользователь видит смысл фразы и может исправить. API: existing UI. Риски: неверная date interpretation.
+
+#### 5D.10. Fallback
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5D.8/9.** Цель и конкретный результат: обычные фильтры при LLM failure
+
+Приёмка: поиск не зависит от доступности AI. API: existing search. Риски: потеря state.
+
+#### 5D.11. Лимиты и стоимость
+
+**Приоритет MEDIUM; статус PLANNED; зависит от 5D.4/6.** Цель и конкретный результат: request/token/query caps и timeout
+
+Приёмка: budget ceiling и provider 429 безопасны. API: LLM + existing PG. Риски: AI costs/abuse.
+
+#### 5D.12. Security tests
+
+**Приоритет HIGH; статус PLANNED; зависит от 5D.5–11.** Цель и конкретный результат: A/B/guest, injection, filter abuse и failure acceptance
+
+Приёмка: чужие данные не раскрываются, SQL не исполняется моделью, fallback работает. API: mocks/marked test PG. Риски: неполное negative coverage.
+
+### Отложенные направления Stage 5
+
+Прежние общий AI-чат, автономные информационные уточнения и расширенная нормализация — **deferred**, не обязательный scope 5A–5D. AI-рекомендации, рецензии и социальные AI-функции не добавлены. [ai-stage.md](ai-stage.md) сохраняет исторические сценарии; при расхождении действует этот roadmap. Следующий подэтап не начинается без принятия предыдущего и согласования владельца.
+
+<details>
+<summary>История roadmap Stage 4/5 до актуализации 15.10.2026 — superseded</summary>
+
+Эта сохранённая версия не является активным планом или списком blockers. Старый 4D profile/lifecycle включён в 4C либо deferred; 4F включён в 4E; старые 5.1–5.6 заменены 5A–5D. Обязательная реконструкция удалений/ledger отменена; старые placeholders и отдельный reset checkbox не действуют без нового согласования.
 
 ## Этап 4 — PostgreSQL и многопользовательский режим
 
@@ -270,6 +682,9 @@ AI остаётся Stage 5. За пределами Stage 4: отдельные
 
 Dynamic Daily Quote: AI/внешнее уточнение может выбирать цитату из музыки, реально представленной в Collection/Wish-list конкретного пользователя. Текущий curated quote catalog остаётся fallback. Не начато; источники, права и технические условия согласуются перед реализацией.
 
+
+</details>
+
 ## Без этапа — идеи
 
 **Статус каждого пункта: идея, решение о реализации не принято.**
@@ -318,6 +733,9 @@ Local acceptance 4B успешно принята владельцем. Git fina
 
 Фактический release, verification, backup/monitoring и ограничения: [production report 4B](stage-4b-production.md).
 
-### Stage 4C — актуальный local scope 12.10.2026
+### Stage 4C — исторический local scope 12.10.2026 (superseded)
+
+> Заменён production DONE 15.10.2026; прежние запреты отражают только ту фазу.
+
 
 Canonical `/{login}/collection` и `/{login}/wishlist`, root landing, `/auth` guest/account. Старые короткие и `/u/…` ссылки обслуживает один resolver. Общая публичность двух списков заменяет раннее решение о независимых переключателях. Кабинет, salePrice, change-password и fixture-safe deletion реализованы локально по прямому разрешению владельца. Production остаётся 4B, реальная Postbox delivery не включалась. [Итоговый local report / acceptance matrix](stage-4c-local.md). Stage 4C не закрыт; commit/push/PR/merge/deploy запрещены до отдельного acceptance.

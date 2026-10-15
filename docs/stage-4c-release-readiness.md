@@ -1,5 +1,7 @@
 # Stage 4C — Full release candidate, 14.10.2026
 
+> Актуализация 15.10.2026: Stage 4C — DONE / PRODUCTION GO. Первоначальный выпуск `40ab34a19cd5d93d1c635ce1ee766011fc321e31`, затем routing/security fix PR #31; текущий production `f593b3f6e86d81f53fd4e490f87bf8c39b136ebc`. [Production report](stage-4c-production.md). Roadmap: 4A/4B/4C DONE → 4D UX / DATA POLISH NEXT → 4E PUBLIC PAGES / SEO PLANNED → 5A → 5B → 5C → 5D. Старые статусы и планы ниже — исторические; при расхождении действуют эта запись и основной backlog. Разрешены только локальные изменения документации; код 4D, commit/push/PR/merge и production operations ожидают отдельных разрешений.
+
 **Статус: CONDITIONAL GO для release candidate. Deployment пока не разрешён.**
 
 Окончательное решение владельца заменяет прежние планы обязательного deletion ledger, Yandex Object Storage и Limited mode. Выпускается весь согласованный Stage 4C, включая самостоятельное удаление аккаунта. Новые облачные ресурсы/ключи/базы не нужны. Исследования S3 прекращены. Restore-recovery: **LOCAL ACCEPTED / INTEGRATION PENDING**; адаптация без ledger проверена локально.

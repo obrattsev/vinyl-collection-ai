@@ -25,7 +25,7 @@ export function createMobileRecords({ document, media, labels, publicFields, dis
     disposeStreaming = streaming?.(content, record);
     actions.replaceChildren();
     if (isOwner()) {
-      for (const [title, callback] of [['Редактировать', openEdit], ['Удалить', openDelete], ...(wishlist ? [['Добавить в коллекцию', openTransfer]] : [])]) {
+      for (const [title, callback] of [['Удалить', openDelete], ['Редактировать', openEdit], ...(wishlist ? [['Добавить в коллекцию', openTransfer]] : [])]) {
         const button = document.createElement('button'); button.type = 'button'; button.textContent = title;
         button.className = callback === openTransfer ? '' : 'button-secondary'; button.disabled = !canAct();
         button.addEventListener('click', () => {

@@ -12,7 +12,7 @@ import * as wishlistModel from '../../src/wishlist-record.mjs';
 import * as wishlistRules from '../../src/wishlist-rules.mjs';
 import * as model from '../../src/collection-record.mjs';
 import * as rules from '../../src/collection-rules.mjs';
-import { GENRES } from '../../src/genres.mjs';
+import { GENRES, genresInRecords } from '../../src/genres.mjs';
 import * as inputs from '../../prototype/input-controls.mjs';
 
 export async function prototypeUI(fetch, { wishlist = false, owner = true, compact = false, pathname = '/collection' } = {}) {
@@ -66,7 +66,7 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true, compa
   }));
   const context = vm.createContext({ document, window: { location: { pathname, assign(path) { this.destination = path; } }, addEventListener() {}, matchMedia: () => media }, fetch, Event, URL, Blob, setTimeout,
     FormData: class { constructor(form) { return [...(form === document.querySelector('#search-form') ? searchInputs : namedInputs)].map(([name, input]) => [name, input.value]); } },
-    mountStreaming, createStreamingDialog, createMobileRecords, bindBugReport, bindDailyQuote, ...coverUI, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES });
+    mountStreaming, createStreamingDialog, createMobileRecords, bindBugReport, bindDailyQuote, ...coverUI, ...presentation, ...publicModel, ...model, ...rules, ...inputs, ...wishlistModel, ...wishlistRules, GENRES, genresInRecords });
   const source = (await readFile(new URL('../../prototype/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   vm.runInContext(source, context);
   vm.runInContext(`applySession(${JSON.stringify(owner ? {role:'owner',csrfToken:'test-csrf'} : {role:'guest'})})`, context);

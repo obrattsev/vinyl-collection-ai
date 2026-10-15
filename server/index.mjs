@@ -1,4 +1,7 @@
+import { statisticsConfiguration, createStatistics } from './statistics.mjs';
 import { createMultiUserAuth } from './security/http-auth.mjs';
+import { createEmailService } from './security/email.mjs';
+import { createDurableReportService, reportNotificationConfiguration, reportPage, startReportDelivery } from './report-delivery.mjs';
 import { scopedServices } from './security/scoped-services.mjs';
 import { backendConfiguration, createPool } from './postgres/config.mjs';
 import { createPostgresServices } from './postgres/services.mjs';
@@ -19,7 +22,10 @@ import { createCoverStorage } from './cover-storage.mjs';
 import { createPresentationService } from './presentation-service.mjs';
 
 let postgresPool;
+let reportWorker;
 async function start() {
+  let authMail,reportDelivery,statistics;
+  const statisticsConfig=statisticsConfiguration(process.env);
   const backend = backendConfiguration(process.env);
   const mirror = mirrorConfiguration(process.env,backend);
   const { COLLECTION_SPREADSHEET_ID: spreadsheetId, COLLECTION_SHEET_NAME: sheetName,
@@ -37,6 +43,7 @@ async function start() {
   if (backend.backend === 'postgres') {
     const pool = createPool(backend.url);
     postgresPool = pool;
+    if(statisticsConfig)statistics=createStatistics(pool);
     const { rows } = await pool.query('SELECT collection_public,wishlist_public FROM vinyl.users WHERE id=$1',[backend.ownerId]);
     if (!rows[0]) throw Error('Configured bridge owner does not exist');
     if (process.env.NODE_ENV==='production') {
@@ -65,33 +72,53 @@ async function start() {
     Object.assign(services, createPresentationService({ collection, wishlist, covers, serial }));
   }
   if (process.env.AUTH_MODE==='multiuser') {
-    auth=await createMultiUserAuth({pool:postgresPool,env:process.env,ownerId:backend.ownerId,covers:services.coverStorage});
+    authMail=createEmailService(process.env);
+    auth=await createMultiUserAuth({pool:postgresPool,env:process.env,ownerId:backend.ownerId,covers:services.coverStorage,emailService:authMail,statistics});
     await auth.accounts.cleanup().catch(()=>console.warn('Pending account cover cleanup; retry after restart.'));
-    servicesForSession=scopedServices(postgresPool,backend.ownerId,services.coverStorage);
+    servicesForSession=scopedServices(postgresPool,backend.ownerId,services.coverStorage,statistics);
     const cleanup=setInterval(()=>auth.store.cleanup().catch(()=>console.error('Auth cleanup unavailable')),60000);
     cleanup.unref();
     await auth.store.cleanup();
   }
   const reportConfig = reportConfiguration(process.env);
+  const notifications=reportNotificationConfiguration(process.env);
+  if(notifications && (!reportConfig || !postgresPool || !authMail)) throw Error('Report notifications require multiuser PostgreSQL reports');
   if (reportConfig) { if (!keyFile || !isAbsolute(keyFile)) throw Error('Reports credentials required'); await access(keyFile); }
-  if (reportConfig) services.createReport = createReportService(createReportRepository({ ...reportConfig, keyFile }), { version: await readRelease() });
+  if (reportConfig) {
+    const repository=createReportRepository({...reportConfig,keyFile}),version=await readRelease();
+    if(postgresPool && authMail) {
+      await postgresPool.query('SELECT id FROM vinyl.bug_report_deliveries LIMIT 0');
+      reportDelivery=createDurableReportService(postgresPool,{repository,mail:authMail,recipient:notifications?.recipient,version});
+      services.createReport=reportDelivery.create;
+    } else {
+      const legacy=createReportService(repository,{version});
+      services.createReport=input=>{
+        if(input && Object.hasOwn(input,'page')){const {page,...record}=input;reportPage(page);return legacy(record);}
+        return legacy(input);
+      };
+    }
+  }
+  await statistics?.initialize();
   services.lookupStreaming = createStreamingService();
-  const server = createApp(services, { auth, servicesForSession });
+  const server = createApp(services, { auth, servicesForSession, onListView:statistics?.view });
   server.on('error', async () => {
+    await reportWorker?.close();
     await postgresPool?.end();
     console.error('Не удалось запустить сервер. Проверьте доступность локального порта.');
     process.exitCode = 1;
   });
   if (postgresPool) for (const signal of ['SIGINT','SIGTERM']) process.once(signal, () => {
-    server.close(async () => { await postgresPool.end(); });
+    server.close(async () => { await reportWorker?.close(); await postgresPool.end(); });
     server.closeIdleConnections();
   });
   server.listen(Number(portValue), '127.0.0.1', () => {
+    if(reportDelivery)reportWorker=startReportDelivery(reportDelivery,{onError:code=>console.error(code)});
     console.log(`Vinyl Collection AI: http://127.0.0.1:${Number(portValue)}/collection`);
   });
 }
 
 start().catch(async () => {
+  await reportWorker?.close();
   await postgresPool?.end().catch(() => {});
   console.error('Не удалось запустить сервер. Проверьте .env и доступность файла credentials.');
   process.exitCode = 1;

@@ -161,3 +161,10 @@ test('SMTP service rejection displays safe message and preserves the input form'
  assert.equal(ui.element('#auth-message').textContent,'Сервис писем временно недоступен. Попробуйте позже.');
  assert.equal(ui.element('#email-label').hidden,false);assert.equal(ui.element('#code-label').hidden,true);
 });
+
+for(const canDelete of [false,true])test(`account deletion affordance follows server protection ${canDelete}`,async()=>{
+ const ui=await authUI('',async url=>url.includes('/bootstrap?')?{session:{role:'owner',csrfToken:'token'}}:{login:'fixture',canDelete,legacy:false,canChangePassword:true});
+ assert.equal(ui.element('#delete-account').hidden,!canDelete);assert.equal(ui.element('#delete-account').disabled,!canDelete);
+ assert.equal(ui.element('#account-protected').hidden,canDelete);
+ const html=await readFile(new URL('../prototype/auth.html',import.meta.url),'utf8');assert.match(html,/Удаление аккаунта владельца сайта недоступно, поскольку он связан с настройками сервиса и синхронизацией данных/);
+});

@@ -22,7 +22,7 @@ test('3C wishlist compact links use original URL and safe attributes; edit prese
   const content = await detail(ui); const mobileLink = content.children[0].children[19].children[0];
   assert.equal(mobileLink.textContent, 'Открыть ↗'); assert.equal(mobileLink.href, url); assert.equal(mobileLink.rel, 'noopener noreferrer');
   assert.ok(!text(content).includes(url)); assert.ok(text(content).includes(note));
-  await ui.get('#detail-actions').children[0].fire('click'); assert.equal(ui.input('storeUrl').value, url);
+  await ui.get('#detail-actions').children[1].fire('click'); assert.equal(ui.input('storeUrl').value, url);
   assert.equal(ui.input('note').value, note); assert.equal(ui.input('note').tagName, 'TEXTAREA');
 });
 test('3C only parsed HTTP(S) values become active links; arbitrary strings and unsafe schemes stay text', async () => {
@@ -84,7 +84,7 @@ test('3C owner purchase values distinguish zero/null in desktop and detail; logo
     source = { ...source, purchasePrice: price };
     await ui.get('#load-collection').fire('click');
     assert.equal(rows(ui)[0].children[11].textContent, price ?? '');
-    const content = await detail(ui); assert.equal(content.children[0].children[23].textContent, price ?? '');
+    const content = await detail(ui); assert.equal(content.children[0].children[23].textContent, price ?? '-');
     await ui.get('#close-detail').fire('click');
   }
   ui.run("applySession({ role: 'guest' })");

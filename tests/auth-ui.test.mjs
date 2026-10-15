@@ -128,6 +128,7 @@ test('a signed-in visitor reads another profile without getting its mutation con
 test('bug report submission carries the current session CSRF token', async () => {
   let sent;
   const ui=await prototypeUI(async (url,options)=>{sent=options;return {status:503,json:async()=>({error:'REPORT_NOT_CONFIGURED'})};});
+  await ui.get('#open-report').fire('click');
   ui.get('#report-text').value='Test report';
   await ui.get('#report-form').fire('submit');
   assert.equal(sent.headers['X-CSRF-Token'],'test-csrf');

@@ -1,5 +1,11 @@
 # Backlog Vinyl Collection AI
 
+> Current authorization 15.10.2026: owner VISUAL ACCEPTANCE complete (including package 1). Git branch/commit/push/PR and production READ-ONLY audit authorized. Merge, deployment, production changes and real emails require separate approval. LOCAL DONE / VISUAL ACCEPTED / PRODUCTION PENDING.
+
+> Visual acceptance package 1: six authorized UI fixes implemented locally; regression 500/500, PG 111/111. User reacceptance ACCEPTED. Existing local stand updated; branch/commit/push/PR authorized, merge/deployment prohibited. [Report](stage-4d-visual-package-1.md).
+
+> Stage 4D — **LOCAL DONE / PRODUCTION PENDING**, функциональный scope закрыт владельцем 15.10.2026. Все блоки приняты, финальные tests 488/488 + PG 111/111, audit 0; отдельный local manual stand запущен. Пользовательская visual acceptance ожидается до любых Git/production действий. Новые задачи до release не добавлять. [Итог](stage-4d-final-readiness.md), [порядок deployment](stage-4d-production-plan.md).
+
 > Актуализация 15.10.2026: Stage 4C — DONE / PRODUCTION GO. Первоначальный выпуск `40ab34a19cd5d93d1c635ce1ee766011fc321e31`, затем routing/security fix PR #31; текущий production `f593b3f6e86d81f53fd4e490f87bf8c39b136ebc`. [Production report](stage-4c-production.md). Roadmap: 4A/4B/4C DONE → 4D UX / DATA POLISH NEXT → 4E PUBLIC PAGES / SEO PLANNED → 5A → 5B → 5C → 5D. Старые статусы и планы ниже — исторические; при расхождении действуют эта запись и основной backlog. Разрешены только локальные изменения документации; код 4D, commit/push/PR/merge и production operations ожидают отдельных разрешений.
 
 Этот документ — основной backlog и roadmap. История этапов 1–3 сохранена; активные требования 4/5 находятся ниже. Подробнее: [план 4D](stage-4d-plan.md).
@@ -127,37 +133,50 @@ Landing, принятый UI Collection/Wish-list, registration/OTP/login/logout
 
 #### 4D.1. Обложки
 
-**Приоритет HIGH; статус PARTIAL; зависимость 4C.** Результат: Add label «Добавить обложку»; в confirmation отсутствует неактивная «Убрать файл»; при редактировании существующей записи доступно «Удалить обложку». Отдельный рабочий Cover flow сохранить. Код: `prototype/index.html`, `wishlist.html`, `cover-ui.mjs`, `app.js`; сейчас Add label и clear button прежние, удаление уже существует отдельно в Cover dialog, но не является действием Edit формы. Повторно backend deletion не разрабатывать.
+**Приоритет HIGH; статус LOCAL DONE, принято владельцем 15.10.2026; зависимость 4C.** В Add label «Добавить обложку»; в confirmation скрыта неактивная «Убрать файл», возврат к draft восстанавливает активную очистку выбора. В Edit существующей обложки добавлено «Удалить обложку» с отменой отметки; draft и preview явно показывают, что удаление произойдёт после финального подтверждения изменений. При Cancel сетевых удалений нет.
 
-Приёмка: оба списка, desktop/mobile, no-cover/uploaded/replaced/deleted/upload-error; правильный draft и confirmation, отсутствие случайного metadata save и orphan resources. API: существующие metadata/Covers. Риск: DB/filesystem и независимые metadata/Cover операции; определить UX удаления в Edit до реализации, если компонент неоднозначен.
+После подтверждения metadata PUT должен успешно вернуть проверенную запись, затем DELETE Cover идёт с её свежим If-Match и CSRF. Проверяются id/модель результата, auth epoch и отсутствие Cover. При конфликте отметка сбрасывается для нового подтверждения; при сбое Cover после сохранения metadata показан частичный результат, автоматических повторов нет. Существующий отдельный Cover dialog и ручная загрузка/замена сохранены. API и backend не изменены в этом блоке.
+
+Приёмка локально: Add/no-cover/выбор/ошибка/редактирование/removal/cancel/undo/conflict/unknown result/смена сессии, оба списка, desktop/mobile; existing replace flow покрыт regression. Риск отдельных metadata/Cover requests явно обработан. [Отчёт](stage-4d-forms.md).
 
 #### 4D.2. Формы добавления и редактирования
 
-**Приоритет MEDIUM; статус TODO; зависимость 4C.** Результат: Add CTA «Добавить», Edit CTA «Изменить», оба сохраняют существующий preview/confirmation; убрать «0 — бесплатно» и примеры года выпуска/даты покупки без смены validation. Сейчас CTA «Проверить и просмотреть», placeholders `YYYY`, `DD.MM.YYYY`, `0 — бесплатно` остаются в `prototype/app.js` и HTML. Более новое требование убрать примеры заменяет старое предложение добавлять «Например, …»; маску/допустимый формат не менять.
+**Приоритет MEDIUM; статус LOCAL DONE, принято владельцем 15.10.2026; зависимость 4C.** Add CTA «Добавить», Edit CTA «Изменить»; оба по-прежнему сначала открывают preview/confirmation. Убраны «0 — бесплатно», placeholders годов альбома/пластинки и даты покупки. Дата DD.MM.YYYY, нулевая цена, required fields, input constraints, duplicates, revisions и untouched stored values сохраняются. Перенос Wish-list не переименован в Add/Edit.
 
-Приёмка: Collection/Wish-list Add/Edit на desktop/mobile, ноль остаётся валидной ценой, cancellation/conflict/draft не меняются, до confirmation нет writes. API: существующий CRUD. Риск: принять переименование кнопки за немедленное сохранение.
+Проверены обе формы на desktop/mobile. API: прежний CRUD. До финального подтверждения writes нет. [Отчёт](stage-4d-forms.md).
 
-#### 4D.3. Фильтры и жанры
+#### 4D.3. Жанровые фильтры
 
-**Приоритет MEDIUM; статус PARTIAL; зависимость 4C.** Результат: filter genres только из доступного текущего списка и по частоте; Add/Edit допустимые GENRES ранжируются по частоте своего Collection+Wish-list, при равенстве стабильно по алфавиту, неиспользованные допустимые варианты остаются ниже. Private данные другого пользователя не используются. Для публичного visitor ranking — только разрешённая проекция, без обращения к закрытому второму списку.
+**Приоритет MEDIUM; статус LOCAL DONE, принято владельцем 15.10.2026; зависимость 4C.** Фильтр содержит только непустые genre/additionalGenre из полного актуального ответа текущего Collection или Wish-list. Частота — число записей с жанром, без двойного счёта внутри записи. Порядок frequency DESC, при равенстве алфавитный Intl.Collator ru с детерминированным fallback; регистр/пробелы группируются по прежнему normalize. Сохранены legacy genres, отсутствующие в closed GENRES.
 
-Код сейчас заполняет filter/Add/Edit из статического GENRES. **DONE по чтению кода:** `form reset → resetResults` снимает favorite-only. Повторную реализацию снятия через «Очистить» не создавать; оставить regression. Старое дополнительное требование очищать остальные фильтры при снятии самого checkbox — **deferred** до отдельного UX-решения; стартовое задание требует снятия через «Очистить».
+Подсчёт выполняется до поиска, поэтому фильтр не сужается до displayedRecords. Другой список не загружается и не учитывается. На public profile источник — прежний public scoped API, только доступная проекция. Общего user/global frequency cache нет. При смене auth context, ошибке/private отказе варианты очищаются; запоздалый GET не возвращает старые жанры. До первой загрузки, в пустом списке или без genre остаётся «Любой жанр».
 
-Приёмка: пусто/одна запись/оба genre fields/несколько жанров/равная частота/no favorites/комбинированные фильтры; «Очистить» снимает избранное и сохраняет согласованное исходное поведение reset. Не менять загрузку каталога без согласования. A/B/guest не получают чужие жанры. API: existing scoped reads; не ослаблять visibility ради ranking. Риск: утечки через частоты и устаревший state после logout/смены пользователя; единицу подсчёта двух совпадающих genre fields уточнить в локальной спецификации.
+Доступный выбранный жанр сохраняется при перестановке вариантов. Исчезнувший выбор сбрасывается на «Любой жанр»; снимается только его criterion, остальные условия остаются. Match semantics (в том числе contains для genre) и сортировка пластинок не менялись. Clear/Favorite reset не переписывался. Варианты и порядок Add/Edit из GENRES оставлены прежними; старый план frequency ranking Add/Edit не выполнен в этом блоке и требует отдельного разрешения, не считается готовым.
+
+Приёмка локально: regression 471/471, PG integration 100/100; A/B/guest/public и разные секции, stale response/logout/private, пусто/no genres/CRUD, desktop/mobile. Реальный изолированный Chrome 1440×1000 и 390×844 для обоих списков: выбор, Add/Edit/Delete и удаление исчезнувшей опции, JS errors 0. API/backend/migrations не менялись. [Отчёт](stage-4d-genres.md).
 
 #### 4D.4. Тексты и подсказки
 
-**Приоритет MEDIUM; статус TODO; зависимость 4C.** Результат: убрать «Найдите нужные пластинки…» из согласованного mobile интерфейса обоих списков; desktop сохранить, если достаточно responsive CSS. Текст присутствует в обоих HTML; это не новая задача полного переписывания интерфейса.
-
-Приёмка: обе секции и размеры экрана, нет лишних пробелов/пустых блоков, остальные согласованные подписи 4D.1/2 проверены без дублей задач. API: нет. Риск: удалить другой intro/не тот variant; при неоднозначности согласовать конкретный компонент.
+**Приоритет MEDIUM; статус LOCAL DONE, принято владельцем 15.10.2026; зависимость 4C.** По последнему прямому заданию владельца удалён intro «Найдите нужные пластинки…» из Collection и Wish-list на всех размерах. Остальные согласованные тексты реализованы в 4D.1/2; весь интерфейс не переписывался. Quote/background и reset/favorite не менялись. API: нет новых. [Локальная приёмка и скриншоты](stage-4d-forms.md).
 
 #### 4D.5. Визуальная приёмка
 
-**Приоритет MEDIUM; статус PARTIAL / ACCEPTANCE PENDING; зависимость 4D.1–4.** Результат: подтверждение сохранения дизайна Collection/Wish-list и главной, desktop/mobile, responsive spacing/type/loading/empty/error.
+**Приоритет MEDIUM; статус LOCAL DONE / PRODUCTION PENDING; итоговая ручная visual acceptance ожидается; зависимость 4D.1–4.** Результат: подтверждение сохранения дизайна Collection/Wish-list и главной, desktop/mobile, responsive spacing/type/loading/empty/error.
 
-**DONE:** файл `prototype/assets/quote-background.webp` существует, просмотрен — потёртые виниловые конверты; `server/app.mjs` разрешает asset, `styles.css` подключает его к `.collection-surface .daily-quote` и mobile variant. В `landing.html` отдельного блока цитат нет; там композиция пяти обложек. Поэтому не считать соответствие формулировке «блок цитат на главной» доказанным. Результат в браузере и соответствие принятому макету в этом цикле не проверялись. Не генерировать новое изображение/дизайн; подтвердить целевой блок с владельцем на acceptance.
+**Оформление цитат принято владельцем 15.10.2026.** Существующий фон Collection/Wish-list сохраняется без изменений. Замена фона, создание альтернатив и сравнение вариантов исключены из Stage 4D. Повторного согласования целевого блока не требуется.
 
-Приёмка: screenshot review заданных viewport и всех состояний без redesign; изображение читаемо и текст контрастен. API: нет новых. Риск: смешать root landing и страницы коллекций.
+Приёмка: локальные скриншоты desktop/mobile, формы, фильтры, адаптивность, loading/empty/errors. Найденные проблемы сначала представить владельцу; исправления только после согласования. Redesign и production operations не разрешены.
+
+Локальный аудит 15.10.2026 завершён: desktop 1440×1000, mobile 390×844, дополнительно 320×740 и 768×1024. Блокирующих визуальных дефектов не обнаружено; P3 первоначального аудита: пустые preview значения; владелец согласовал `-`, исправлено в последующем локальном дополнении. Во время самого аудита код не менялся. [Результат](stage-4d-visual-audit.md).
+
+#### Дополнения после визуального аудита 15.10.2026
+
+**LOCAL DONE, принято владельцем:** согласованное V1 (пустые preview значения `-`), auth flash Collection/Wish-list, единый report/account button. Regression 479/479, PG 100/100 и Chrome desktop/mobile. [Результаты](stage-4d-ui-followup.md). Код удаления не менялся.
+
+**LOCAL DONE / PRODUCTION PENDING — ежедневная статистика:** получатель `obratsev@yandex.ru`, 10:00 МСК, предыдущий календарный день. Migration 007 и runtime/backup grants, atomic registration/additions, DAU только по успешному авторизованному просмотру списка (не login/technical/guest), начало учёта без backfill, текущие totals и durable report snapshot, Postbox с max 3 attempts и unknown без автоматического resend. Existing PostgreSQL/Node/systemd, новых сервисов аналитики нет. Timer units подготовлены, не установлены. Regression 488/488, PG 111/111. [Локальный результат/runbook](stage-4d-statistics-local.md).
+
+**LOCAL DONE / PRODUCTION PENDING — protected account UI:** решение Stage 4C подтверждено владельцем; initial owner и mirror accounts остаются защищёнными. Кнопка удаления скрыта, показан точный согласованный текст о связи с настройками сервиса и синхронизацией данных. У обычных users кнопка сохранена; server deletion rules не менялись. Guest/owner account label проверен: «Личный кабинет» без legacy login flash. [Исследование и принятое решение](stage-4d-owner-deletion-review.md).
+
 
 #### 4D.6. Тестирование и локальная приёмка
 
@@ -167,23 +186,27 @@ Landing, принятый UI Collection/Wish-list, registration/OTP/login/logout
 
 #### 4D.7. Безопасные production releases
 
-**Приоритет HIGH; статус ANALYZED / TODO; зависимость 4C; первым в плане.** Цель — воспроизводимое обновление с минимально возможным downtime и сохранением данных/сессий. Сейчас один Node process за nginx, immutable release directories, current symlink, systemd restart, отдельные env/Covers и PG sessions; helpers freeze/backup/migrate уже есть. Универсального подтверждённого migration compatibility gate и автоматизированного release smoke checklist пока нет. Zero-downtime не обещается.
+**Приоритет HIGH; статус LOCAL DONE, принято владельцем 15.10.2026; зависимость 4C; первым в плане.** Цель — воспроизводимое обновление с минимально возможным downtime и сохранением данных/сессий. Сейчас один Node process за nginx, immutable release directories, current symlink, systemd restart, отдельные env/Covers и PG sessions; helpers freeze/backup/migrate уже есть. Добавлены локальные schema compatibility gate, read-only smoke и [release checklist](release-checklist.md); системный deployment не выполнялся. Zero-downtime не обещается.
 
-Результат: простой operator runbook и минимальные локальные helpers на существующем stack: закреплённый artifact + подготовка dependencies до окна; preflight, свежий проверенный backup, additive migration compatibility gate, короткое окно переключения/restart, автоматизированный read-only smoke; rollback только к совместимому приложению без destructive DB rollback. AUTH_SECRET/PG session data не ротировать при обычном выпуске. Mirror и backup timer должны вернуться в прежнее согласованное состояние и проверяться после выпуска. [Конкретное предложение и checklist](stage-4d-plan.md).
+Локальный результат: `release-policy.json`, `server/release-safety.mjs`, `scripts/release-check.mjs`, `scripts/release-smoke.mjs` и operator runbook. На существующем stack: закреплённый artifact + подготовка dependencies до окна; preflight, свежий проверенный backup, additive migration compatibility gate, короткое окно переключения/restart, автоматизированный read-only smoke; rollback только к совместимому приложению без destructive DB rollback. AUTH_SECRET/PG session data не ротировать при обычном выпуске. Mirror и backup timer должны вернуться в прежнее согласованное состояние и проверяться после выпуска. [Конкретное предложение и checklist](stage-4d-plan.md).
 
-Приёмка: локально воспроизведён успешный upgrade и неуспешный smoke→совместимый app rollback; сессия обычного пользователя сохраняется, несовместимая schema останавливает выпуск до switch; данные/Covers/mirror state не теряются, timers восстановлены; зафиксированы фактическое окно недоступности и STOP rules. API: existing app/PG/systemd/SMTP config, без новых services. Риски: locks/DDL latency, in-flight requests, несовместимый старый binary; destructive migrations требуют отдельного решения и окна. Production changes отдельно согласуются.
+Приёмка: локально воспроизведён успешный upgrade и неуспешный smoke→совместимый app rollback; сессия обычного пользователя сохраняется, несовместимая schema останавливает выпуск до switch; данные/Covers/mirror state не теряются, timers восстановлены; зафиксированы фактическое окно недоступности и STOP rules. API: existing app/PG/systemd/SMTP config, без новых services. Риски: locks/DDL latency, in-flight requests, несовместимый старый binary; destructive migrations требуют отдельного решения и окна. Проверки 15.10.2026: regression 439/439, PG integration 88/88, дополнительные release PG 2/2 (в том числе migration lock timeout около 5 секунд); npm audit 0. HTTP/auth runtime пересоздан локально, прежний cookie/синтетическая запись/Cover hash/mirror сохранены. Фактические Linux systemd/timers/production downgrade не выполнялись. [Локальный отчёт](stage-4d-release-safety.md). Production changes отдельно согласуются.
 
 #### 4D.8. Отчёт об ошибке и email-уведомления
 
-**Приоритет HIGH; статус PARTIAL; зависимость 4C и release plan 4D.7.** Цель — сохранить принятый report и уведомить владельца через существующий Yandex Cloud Postbox.
+**Приоритет HIGH; статус LOCAL DONE, принято владельцем 15.10.2026; зависимость 4C и принятый 4D.7.** Цель — сохранить принятый report и уведомить владельца через существующий Yandex Cloud Postbox.
 
 **DONE по коду:** `prototype/app.js` скрывает кнопку от unauthenticated; `server/app.mjs` вызывает `requireOwner` (в multiuser это authenticated session+CSRF), лимит report и body 16 KiB; `server/bug-reports.mjs` валидирует и сохраняет в отдельный Sheets через очередь+appendVerified; существующий plain text/stringValue и лимит 2000 символов сохраняются. Busy/disabled кнопка защищает только от одновременного submit в одном UI. Отсутствует полноценная повторная идемпотентность после потери ответа.
 
-**TODO:** передавать user identity только из server session, сохранять её и страницу (текущая schema имеет только id/time/text/section/version); настроить фиксированного получателя; уведомление с датой/временем, user id или email, описанием и проверенной страницей. From — существующий верифицированный отправитель Postbox, пользовательский текст только body, не headers/From/recipient. Проверить auth/CSRF/Origin, rate limits, повторные запросы и timeout, HTML/header injection, отсутствие secrets. Существующий SMTP adapter для auth не переписывать целиком.
+**Локально реализовано 15.10.2026:** migration 006 добавляет одну таблицу `bug_report_deliveries` в существующий PostgreSQL. Аутентифицированный report с UUID request key, user UUID из server session, текстом, section/page/time/version атомарно сохраняется до HTTP 201. Повтор с тем же user/key возвращает прежний id; изменённое содержимое — 409. Сессия перепроверяется внутри transaction; persistent лимиты 3/15 min/user и 50/hour общие дополняют прежние IP/CSRF/Origin/body limits. User identity/recipient/From от клиента не принимаются. Query/token в page исключены.
 
-Сбой SMTP после сохранения не превращает принятый report в потерянный или повод повторно создавать его. Предпочтение: минимальный persistent pending/sent status и ограниченные retries в существующем процессе; выбрать размещение рядом с текущим report storage после проверки API/схемы, без новой очереди/сервиса. Документировать неоднозначный SMTP timeout: exactly-once delivery не обещать. Acceptance: один согласованный тестовый report сохранён, email реально доставлен на указанный владельцем адрес; SMTP down/timeout/restart не теряют report, retries не создают повторных reports, ошибки санитизированы. Реальное письмо только в отдельно согласованной acceptance; сейчас не отправлять.
+Встроенный bounded worker текущего Node процесса продолжает писать отчёты в прежнюю отдельную Google Sheets-таблицу с прежними пятью колонками. Это доставка архива из durable PG, не замена PostgreSQL Sheets-данными. SMTP отправляется через прежний Postbox adapter с фиксированным verified From и отдельными `BUG_REPORT_NOTIFICATIONS_ENABLED` / `BUG_REPORT_EMAIL_TO`; получатель согласован и подготовлен только в приватном локальном env, не в Git/production. Notification содержит report id, UTC time, user UUID, section/page и описание, только plain text.
 
-API: существующие Google Sheets и Yandex Cloud Postbox SMTP; recipient ещё не выбран для этой функции, не предполагать по старому owner email. Риски: reports содержат персональные данные; минимизация identity, доступ/retention для Sheets/email, SMTP quotas, дубликат письма при ambiguous timeout. Дополнительные provider/cloud ресурсы не нужны.
+Сбой Sheets/SMTP не отменяет принятие. Known SMTP failure повторяется до 5 раз; ambiguous timeout/прерванный sending → unknown без автоматического resend. Для Sheets durable write intent + read-back по ID; после ambiguous append только сверка, без повторного blind append. Интервал 10 секунд, максимум один report за проход, advisory lock защищает от двух workers; freeze/restore quarantine сохраняются. Неопределённые/исчерпанные доставки требуют операторской сверки, exactly-once SMTP не обещается.
+
+**Приёмка локальной реализации:** regression 443/443; полный PG suite 97/97 и дополнительные focused 10/10 после усиления NUL/retry exhaustion/grants; авторизация, повторные/конкурентные запросы, SMTP down/timeout, restart recovery и bounds проверены. Реальные Postbox письма не отправлялись; фактическая доставка получателю не заявляется выполненной. Перед production нужны отдельно разрешённые migration 006/grants/release и реальная delivery acceptance. Schema policy новой версии 6–6; совместимость старого rollback binary со schema 6 требует явного review и SHA-bound declaration с checksum migration 006. [Подробный локальный отчёт](stage-4d-bug-reports.md).
+
+API: существующие Google Sheets и Yandex Cloud Postbox SMTP; новых services/providers/databases нет. Риски: privacy пользовательского текста, archive retention и ambiguous external results. Report archive остаётся независимым от удаления аккаунта, как существующий Sheets archive; хранится user UUID без email. Durable report/статусы входят в стандартный PG dump; backup-role SELECT grant добавлен. Не добавлять публичный inbox/status endpoint или произвольные recipients.
 
 ### 4E — PUBLIC PAGES / SEO — PLANNED
 

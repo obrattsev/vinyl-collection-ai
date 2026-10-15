@@ -1,0 +1,9 @@
+[Unit]
+Description=Vinyl Collection bounded statistics retry window
+[Timer]
+OnCalendar=*-*-* 10:05:00 Europe/Moscow
+OnCalendar=*-*-* 10:10:00 Europe/Moscow
+Unit=vinyl-daily-statistics.service
+AccuracySec=1s
+[Install]
+WantedBy=timers.target

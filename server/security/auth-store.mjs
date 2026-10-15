@@ -14,7 +14,7 @@ export async function transaction(pool, work) {
   catch (error) { try { await client.query('ROLLBACK'); } catch { broken = true; } throw error; }
   finally { client.release(broken); }
 }
-export async function createAuthStore({ pool, secret, emailService, now = Date.now, registrationEnabled = false, ownerId, legacyEnabled = false, audit = () => {} }) {
+export async function createAuthStore({ pool, secret, emailService, now = Date.now, registrationEnabled = false, ownerId, legacyEnabled = false, audit = () => {}, statistics = null }) {
   if (!/^[a-f0-9]{64}$/.test(secret || '')) throw Error('Separate 32-byte auth secret required');
   const authTransaction = work => transaction(pool, async client => {
     await client.query('SELECT pg_advisory_xact_lock_shared(44160403)');
@@ -189,6 +189,7 @@ export async function createAuthStore({ pool, secret, emailService, now = Date.n
           const login = input(() => normalizeLogin(body.login ?? flow.login));
           const u = await insertUser(client,{login,email:flow.email,fullName:flow.full_name}); userId=u.id;
           await client.query("INSERT INTO vinyl.user_auth(user_id,status,password_hash,email_verified_at) VALUES($1,'active',$2,$3)",[userId,hash,flow.verified_at]);
+          await statistics?.count(client,'registrations');
         } else if(flow.kind==='owner') {
           if(!legacyEnabled || userId!==ownerId) fail(403,'FORBIDDEN');
           await client.query("INSERT INTO vinyl.user_auth(user_id,status,password_hash,email_verified_at) VALUES($1,'active',$2,$3)",[userId,hash,flow.verified_at]);

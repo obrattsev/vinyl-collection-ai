@@ -27,8 +27,8 @@
     <div class="section-bar">
       <nav class="section-nav" aria-label="Разделы"><a href="/collection" >Коллекция</a><a href="/wishlist" aria-current="page">Wish-list</a></nav>
       <div class="owner-access">
-        <a id="account-link" class="button-secondary" href="/auth" hidden>Личный кабинет</a>
-        <button id="owner-login" class="button-secondary" type="button">Войти</button>
+        <a id="account-link" class="button-secondary account-button" href="/auth" hidden>Личный кабинет</a>
+        <button id="owner-login" class="button-secondary" type="button" hidden>Войти</button>
         <button id="owner-logout" class="button-secondary" type="button" hidden>Выйти</button>
       </div>
     </div>
@@ -36,7 +36,6 @@
     <section aria-labelledby="section-title">
       <h1 id="section-title" class="visually-hidden">Wish-list</h1>
       <figure id="daily-quote" class="daily-quote" hidden></figure>
-      <p class="intro">Найдите нужные пластинки в wish-list. Оставьте поля пустыми, чтобы не учитывать их при поиске.</p>
       <form id="search-form" novalidate>
         <fieldset id="search-controls">
           <legend class="visually-hidden">Поиск в wish-list</legend>
@@ -82,7 +81,7 @@
       <p id="status" tabindex="-1" role="status" aria-live="polite">Здесь появятся результаты поиска.</p>
       <button type="button" id="download-records" class="button-secondary" hidden disabled>Скачать csv</button>
     </div>
-    <button id="open-report" hidden type="button" class="button-secondary">Сообщить об ошибке</button>
+    <button id="open-report" hidden type="button" class="button-secondary account-button">Сообщить об ошибке</button>
     <dialog id="cover-dialog" aria-labelledby="cover-title">
       <div class="cover-header"><h2 id="cover-title">Обложка</h2><button id="close-cover" type="button" class="button-secondary" aria-label="Закрыть">×</button></div>
       <div id="cover-preview" hidden></div>
@@ -92,6 +91,7 @@
         <p class="notice">JPEG, PNG или WebP, до 10 MiB и 16 мегапикселей.</p>
         <div class="cover-actions">
           <button id="remove-cover" type="button" class="button-secondary" hidden>Удалить</button>
+          <button id="cancel-cover" type="button" class="button-secondary">Отмена</button>
           <button id="save-cover" type="button" disabled>Сохранить</button>
         </div>
         <div id="cover-delete-confirmation" hidden>
@@ -139,11 +139,18 @@
       <form id="record-form" novalidate>
         <div id="transfer-source" hidden></div>
         <div id="add-cover-field" hidden>
-          <label for="add-cover-file">Обложка (необязательно)</label>
+          <div id="add-cover-controls">
+          <label for="add-cover-file">Добавить обложку</label>
           <input id="add-cover-file" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="add-cover-error">
           <button id="clear-add-cover" type="button" class="button-secondary" hidden>Убрать файл</button>
-          <div id="add-cover-preview" hidden></div>
           <p id="add-cover-error" role="status"></p>
+          </div>
+          <div id="add-cover-preview" hidden></div>
+        </div>
+        <div id="edit-cover-field" hidden>
+          <button id="edit-remove-cover" type="button" class="button-secondary">Удалить обложку</button>
+          <button id="edit-keep-cover" type="button" class="button-secondary" hidden>Отменить удаление обложки</button>
+          <p id="edit-cover-status" role="status"></p>
         </div>
         <fieldset id="record-fields" class="record-grid"></fieldset>
         <p id="record-error" role="alert"></p>
@@ -152,7 +159,7 @@
         <div id="record-preview" hidden></div>
         <div class="dialog-actions">
           <button type="button" id="cancel-record" class="button-secondary action-start">Отмена</button>
-          <button type="submit" id="preview-record" class="action-end">Проверить и просмотреть</button>
+          <button type="submit" id="preview-record" class="action-end">Добавить</button>
           <button type="button" id="edit-draft" class="button-secondary action-middle" hidden>Исправить</button>
           <button type="button" id="confirm-record" class="action-end" hidden>Подтвердить добавление</button>
         </div>

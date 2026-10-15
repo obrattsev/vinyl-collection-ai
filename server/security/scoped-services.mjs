@@ -1,6 +1,6 @@
 import { createPostgresServices } from '../postgres/services.mjs';
 import { OperationError } from '../record-operations.mjs';
-export function scopedServices(pool, _guestOwnerId, covers) {
+export function scopedServices(pool, _guestOwnerId, covers, statistics = null) {
   const factory = session => {
     const userId=session?.userId;
     const services=session ? createPostgresServices(pool,userId,covers,async client=>{
@@ -10,7 +10,7 @@ export function scopedServices(pool, _guestOwnerId, covers) {
         WHERE s.token_digest=$1 AND s.user_id=$2 AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp() AND s.last_seen_at>clock_timestamp()-interval '1 day'
         AND a.status='active' AND a.auth_version=s.auth_version`,[session.tokenDigest,session.userId]);
       if(!result.rowCount)throw new OperationError(401,'AUTH_REQUIRED');
-    }) : {coverStorage:covers,getCollection:async()=>{throw new OperationError(401,'AUTH_REQUIRED');},getWishlist:async()=>{throw new OperationError(401,'AUTH_REQUIRED');}};
+    },statistics) : {coverStorage:covers,getCollection:async()=>{throw new OperationError(401,'AUTH_REQUIRED');},getWishlist:async()=>{throw new OperationError(401,'AUTH_REQUIRED');}};
     services.publicSalePrice=async()=>Boolean(session && (await pool.query('SELECT show_sale_price FROM vinyl.users WHERE id=$1',[userId])).rows[0]?.show_sale_price);
     services.authorizeList=async section=>{
       if(session)return;

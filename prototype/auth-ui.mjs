@@ -73,6 +73,7 @@ async function account(){
  button('account-login').textContent=data.login;
  button('public-collection').checked=data.publicCollection;
  button('show-sale-price').checked=data.showSalePrice;
+ button('delete-account').hidden=!data.canDelete;
  button('delete-account').disabled=!data.canDelete;
  button('account-protected').hidden=data.canDelete;
  button('change-password').disabled=data.legacy||data.canChangePassword===false;

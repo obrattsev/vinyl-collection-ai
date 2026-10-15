@@ -154,7 +154,7 @@ for (const compact of [false, true]) test(`3D quick controls keyboard focus afte
   assert.equal(ui.activeElement(), changed); assert.equal(changed.attributes['aria-pressed'], 'true');
   assert.equal(changed.attributes['data-active'], 'true');
   const cover = find(root, 'cover-control'); cover.focus(); await cover.fire('click');
-  assert.equal(ui.activeElement(), ui.get('#close-cover'));
+  assert.equal(ui.activeElement(), ui.get(compact ? '#close-cover' : '#cancel-cover'));
   let prevented = false; await ui.get('#cover-dialog').fire('cancel', { preventDefault() { prevented = true; } });
   assert.equal(prevented, false); // Native dialog performs close on uncancelled Escape.
   ui.get('#cover-dialog').close(); await tick(); assert.equal(ui.activeElement(), cover);

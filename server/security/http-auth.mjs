@@ -12,7 +12,7 @@ function cookieValue(req,name) {
   const values=(req.headers.cookie || '').split(';').map(s=>s.trim()).filter(s=>s.startsWith(name+'='));
   return values.length===1 ? values[0].slice(name.length+1) : null;
 }
-export async function createMultiUserAuth({pool,env,ownerId,emailService,covers,ledger,now=Date.now}) {
+export async function createMultiUserAuth({pool,env,ownerId,emailService,covers,ledger,statistics=null,now=Date.now}) {
   const production=env.NODE_ENV==='production',origin=env.APP_ORIGIN;
   let url;try{url=new URL(origin);}catch{throw Error('Explicit APP_ORIGIN required');}
   if(url.origin!==origin || (production ? url.protocol!=='https:' : !['http://127.0.0.1','http://localhost'].includes(`${url.protocol}//${url.hostname}`)))throw Error('Unsafe auth origin');
@@ -23,7 +23,7 @@ export async function createMultiUserAuth({pool,env,ownerId,emailService,covers,
   if(production && !await mail.check())throw Error('SMTP unavailable at startup');
   const registrationEnabled=env.AUTH_REGISTRATION_ENABLED==='true',legacyEnabled=env.AUTH_LEGACY_ENABLED==='true';
   const legacy=legacyEnabled ? createAuth({passwordHash:env.OWNER_PASSWORD_HASH,origin,production,now}) : null;
-  const store=await createAuthStore({pool,secret:env.AUTH_SECRET,emailService:mail,ownerId,legacyEnabled,registrationEnabled,now,audit:event=>console.info(JSON.stringify(event))});
+  const store=await createAuthStore({pool,secret:env.AUTH_SECRET,emailService:mail,ownerId,legacyEnabled,registrationEnabled,now,statistics,audit:event=>console.info(JSON.stringify(event))});
   const name=production?'__Host-vinyl_auth':'vinyl_auth',flowName=production?'__Host-vinyl_flow':'vinyl_flow',preName=production?'__Host-vinyl_pre':'vinyl_pre';
   const ip=req=>{
     const value=clientIP(req,production);

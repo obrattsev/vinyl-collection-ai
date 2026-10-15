@@ -1,0 +1,15 @@
+[Unit]
+Description=Vinyl Collection daily service statistics
+After=network-online.target postgresql.service
+[Service]
+Type=oneshot
+User=vinyl
+Group=vinyl
+WorkingDirectory=/opt/vinyl-collection-ai/current
+EnvironmentFile=/etc/vinyl-collection-ai/app.env
+ExecStart=/opt/vinyl-collection-ai/runtime/node-v24.19.0-linux-x64/bin/node scripts/daily-statistics.mjs
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+TimeoutStartSec=120

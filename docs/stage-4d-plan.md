@@ -1,6 +1,10 @@
 # Stage 4D — план локальной реализации, 15.10.2026
 
-**Статус: предложен, ожидает согласования. Код не изменён.** Единственный backlog — [backlog.md](backlog.md); здесь последовательность реализации и приёмки, а не второй tracker. 4C DONE по [production report](stage-4c-production.md). Новых production checks в этом цикле нет.
+> Current authorization 15.10.2026: owner VISUAL ACCEPTANCE complete (including package 1). Git branch/commit/push/PR and production READ-ONLY audit authorized. Merge, deployment, production changes and real emails require separate approval. LOCAL DONE / VISUAL ACCEPTED / PRODUCTION PENDING.
+
+> Актуальный итог: **LOCAL DONE / PRODUCTION PENDING**. Функциональный scope принят/закрыт владельцем; финальные checks завершены, ручная приёмка локального stand ожидается. Исторические статусы ниже относятся к предыдущим итерациям. [Финальный отчёт](stage-4d-final-readiness.md).
+
+**Статус: план согласован владельцем 15.10.2026. 4D.7 принят как Local DONE; 4D.8 принят как Local DONE; формы/обложки/тексты приняты как Local DONE; жанровый фильтр принят как Local DONE; [результаты](stage-4d-release-safety.md). Разрешён локальный визуальный аудит; обнаруженные проблемы представить перед исправлениями. Production без отдельного разрешения не менять.** Единственный backlog — [backlog.md](backlog.md); здесь последовательность реализации и приёмки, а не второй tracker. 4C DONE по [production report](stage-4c-production.md). Новых production checks в этом цикле нет.
 
 ## Порядок и разумная группировка
 
@@ -49,7 +53,7 @@ Server session задаёт userId/email, клиент не выбирает ide
 
 ## Визуальные и data gates
 
-Проверять Collection и Wish-list на desktop и mobile, пустые/загруженные/error состояния, Add/Edit preview/cancel/conflict, Cover no/add/replace/delete/error. Изображение потёртых конвертов уже есть и связано с quote block страниц коллекций; root landing отдельного quote block не содержит. Визуальное соответствие и точный целевой блок подтвердить у владельца, новый дизайн не предлагать автоматически.
+Проверять Collection и Wish-list на desktop и mobile, пустые/загруженные/error состояния, Add/Edit preview/cancel/conflict, Cover no/add/replace/delete/error. Текущий фон цитат Collection/Wish-list полностью принят владельцем. Замена, альтернативы и сравнение исключены из Stage 4D; оформление не менять.
 
 Filter genres строятся только по доступному каталогу. Add/Edit ranking своего пользователя учитывает оба его списка, visitor не должен читать закрытый список ради частоты. Проверить пустые жанры, ties, дополнительный жанр, no favorites, combined filters, reset/logout/stale response. Переключение favorite checkbox не расширять новым reset поведением без решения владельца.
 
@@ -57,7 +61,11 @@ Filter genres строятся только по доступному катал
 
 1. Принять порядок 4D.7 → 4D.8 → 4D.1/2/4 → 4D.3 → 4D.5/6 либо скорректировать приоритеты.
 2. Указать email получателя уведомлений и разрешённый адрес для будущей проверки доставки; старый owner email автоматически не назначать.
-3. Подтвердить, что «блок цитат на главной» означает существующий блок страниц Collection/Wish-list; если имеется в виду root `/`, уточнить отдельно без начала redesign.
+3. Решение принято: существующий фон цитат Collection/Wish-list сохранить, альтернативы исключены из Stage 4D.
 4. При локальной спецификации зафиксировать единицу genre frequency (рекомендация: число записей с жанром, без двойного счёта одинаковых primary/additional в одной записи) и конкретное место действия Delete Cover в Edit, если UI неоднозначен.
 
 Прежний Wishlist noindex сохраняется для 4E; редактирование ФИО и прочие profile enhancements deferred. Это не блокирует подготовку 4D. Git и production разрешения не входят в согласование локального плана. После подготовки документации работа остановлена до ответа владельца.
+
+## Согласованные дополнения после visual audit
+
+Предыдущие UI исправления приняты Local DONE. Статистика и protected account UI реализованы локально и ожидают приёмки: [результат](stage-4d-statistics-local.md). Семь согласованных показателей, предыдущий календарный день МСК, доставка в 10:00; DAU только successful authenticated list views, без метрики повторной активности. Migration 007, текущая candidate policy schema 7–7, отдельные release gates. Production/Git operations не разрешены; после локального результата остановиться.

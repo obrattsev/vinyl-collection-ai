@@ -1,5 +1,7 @@
 # Работа над Vinyl Collection AI
 
+> Authorization update 15.10.2026: maintenance fix and isolated tests accepted. Branch/commit/push/separate PR for maintenance tools, release checks and documentation authorized. Merge and all production mutations (maintenance, deployment, backup/restore, migrations, real email) remain prohibited pending separate approval. Functional Stage 4D scope unchanged. [Retry plan](docs/stage-4d-maintenance-retry.md).
+
 > Current authorization 15.10.2026: owner VISUAL ACCEPTANCE complete (including package 1). Git branch/commit/push/PR and production READ-ONLY audit authorized. Merge, deployment, production changes and real emails require separate approval. LOCAL DONE / VISUAL ACCEPTED / PRODUCTION PENDING.
 
 > Актуальное разрешение: локально исправить шесть UI замечаний visual acceptance (пакет №1), regression и desktop/mobile проверки обеих ролей; обновить существующий стенд без сброса данных. Production и любые Git publication operations запрещены. Повторная приёмка остаётся за владельцем.

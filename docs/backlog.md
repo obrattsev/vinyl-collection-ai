@@ -1,5 +1,7 @@
 # Backlog Vinyl Collection AI
 
+> Maintenance gate: LOCAL FIX ACCEPTED / PR AUTHORIZED / PRODUCTION UNCHANGED. Diagnosis and isolated nginx proof accepted; 517/517 regression. Separate maintenance PR authorized; merge and production retry require new approval. [Diagnosis](stage-4d-maintenance-diagnosis.md), [retry plan](stage-4d-maintenance-retry.md).
+
 > Current authorization 15.10.2026: owner VISUAL ACCEPTANCE complete (including package 1). Git branch/commit/push/PR and production READ-ONLY audit authorized. Merge, deployment, production changes and real emails require separate approval. LOCAL DONE / VISUAL ACCEPTED / PRODUCTION PENDING.
 
 > Visual acceptance package 1: six authorized UI fixes implemented locally; regression 500/500, PG 111/111. User reacceptance ACCEPTED. Existing local stand updated; branch/commit/push/PR authorized, merge/deployment prohibited. [Report](stage-4d-visual-package-1.md).

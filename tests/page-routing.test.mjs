@@ -146,7 +146,7 @@ test('private Collection and Wishlist link directly to login and preserve direct
   const app = await start(t, servicesForSession);
   for (const section of ['collection', 'wishlist']) {
     const response = await app.call(`/alice/${section}`);
-    assert.equal(response.status, 403);
+    assert.equal(response.status, 404);
     const html = await response.text();
     assert.match(html, /href="\/auth\?mode=login"/);
     assert.match(html, /href="\/auth\?mode=registration"/);

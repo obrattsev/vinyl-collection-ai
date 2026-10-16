@@ -142,6 +142,7 @@ async function showCollection(criteria = {}) {
     if (version !== loadVersion) return;
     if (response.headers?.get('X-Access-Role') === 'guest' && owner) { applySession({ role: 'guest' }); await showCollection(criteria); return; }
     if (owner) validateRecords(records); else validatePublicRecords(records, isWishlist);
+    document.querySelector('#public-catalogue')?.remove();
     const removedGenre = refreshSearchGenres(records);
     const currentCriteria = removedGenre && normalize(criteria.genre) === normalize(removedGenre)
       ? { ...criteria, genre: '' } : criteria;
@@ -174,6 +175,7 @@ async function showCollection(criteria = {}) {
     return true;
   } catch (cause) {
     if (version !== loadVersion) return;
+    document.querySelector('#public-catalogue')?.remove();
     refreshSearchGenres([]);
     status.textContent = '';
     error.textContent = cause.message === 'COLLECTION_PRIVATE' ? 'Этот список закрыт. Войдите в аккаунт владельца, чтобы увидеть его.' : profileLogin && cause.message === 'NOT_FOUND' ? 'Пользователь не найден.' : cause.message === 'WISHLIST_NOT_CONFIGURED' ? 'Wish-list ещё не подключён. Настройте отдельный Google Sheets-документ на сервере.' : isWishlist ? 'Ошибка загрузки данных. Не удалось загрузить wish-list.' : 'Ошибка загрузки данных. Не удалось загрузить коллекцию.';

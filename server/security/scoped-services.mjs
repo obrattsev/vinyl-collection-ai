@@ -17,7 +17,7 @@ export function scopedServices(pool, _guestOwnerId, covers, statistics = null) {
       throw new OperationError(401,'AUTH_REQUIRED');
     };
     services.authorizeCover=async id=>{
-      const {rowCount}=await pool.query(`SELECT c.id FROM vinyl.covers c JOIN vinyl.users u ON u.id=c.user_id WHERE c.id=$1 AND (
+      const {rowCount}=await pool.query(`SELECT c.id FROM vinyl.covers c JOIN vinyl.users u ON u.id=c.user_id WHERE c.id=$1 AND EXISTS(SELECT 1 FROM vinyl.user_auth a WHERE a.user_id=u.id AND a.status='active') AND (
         EXISTS(SELECT 1 FROM vinyl.collection_records r WHERE r.cover_id=c.id AND r.user_id=c.user_id AND (c.user_id=$2 OR u.collection_public)) OR
         EXISTS(SELECT 1 FROM vinyl.wishlist_records r WHERE r.cover_id=c.id AND r.user_id=c.user_id AND (c.user_id=$2 OR u.wishlist_public)))`,[id,session?.userId || null]);
       if(!rowCount)throw new OperationError(404,'NOT_FOUND');
@@ -28,13 +28,15 @@ export function scopedServices(pool, _guestOwnerId, covers, statistics = null) {
   factory.profile = async (login, section, session) => {
     const field = {collection:'collection_public',wishlist:'wishlist_public'}[section];
     if (!field) throw new OperationError(404,'NOT_FOUND');
-    const {rows} = await pool.query(`SELECT id,login,show_sale_price,${field} AS public FROM vinyl.users WHERE login_normalized=$1`, [login.toLowerCase()]);
+    const {rows} = await pool.query(`SELECT id,login,show_sale_price,${field} AS public FROM vinyl.users WHERE login_normalized=$1 AND EXISTS(SELECT 1 FROM vinyl.user_auth a WHERE a.user_id=vinyl.users.id AND a.status='active')`, [login.toLowerCase()]);
     const user = rows[0];
     if (!user) throw new OperationError(404,'NOT_FOUND');
     if (!user.public && session?.userId !== user.id) throw new OperationError(403,'COLLECTION_PRIVATE');
     const services = createPostgresServices(pool,user.id,covers);
-    return {login:user.login, showSalePrice:user.show_sale_price, owner:session?.userId === user.id,
+    return {login:user.login, public:user.public, showSalePrice:user.show_sale_price, owner:session?.userId === user.id,
       records: () => section === 'wishlist' ? services.getWishlist() : services.getCollection()};
   };
+  factory.publicCollections = async () => (await pool.query(`SELECT u.login FROM vinyl.users u
+    JOIN vinyl.user_auth a ON a.user_id=u.id WHERE u.collection_public AND a.status='active' ORDER BY u.login_normalized`)).rows.map(row=>row.login);
   return factory;
 }

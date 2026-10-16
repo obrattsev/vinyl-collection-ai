@@ -39,6 +39,7 @@ export async function prototypeUI(fetch, { wishlist = false, owner = true, compa
     }
     dispatchEvent(event) { for (const fn of this.handlers[event.type] ?? []) fn(event); }
     click() { if (this.tagName === 'A') downloads.push(this.href); }
+    remove() { this.removed = true; this.hidden = true; }
     prepend(...children) { this.children.unshift(...children); }
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children = children; }

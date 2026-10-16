@@ -1,5 +1,7 @@
 # Stage 4D — точный план production release
 
+> Выполнено 15–16.10.2026: **Stage 4D — PRODUCTION DONE** на exact SHA `d5f0ee90632339c8470cb9d710f32e99182098c2`, schema 7. [Фактический отчёт](stage-4d-production.md). План ниже сохранён как runbook/history; он не разрешает повторять deployment. Inbox тестового Bug Report подтверждён; первый daily email — отложенная проверка.
+
 > Deployment stopped before backup/restore/DDL. Current authorization: publish the accepted maintenance fix as a separate PR; no merge or new deployment. Before any retry, the maintenance sequence in [the reviewed local retry proposal](stage-4d-maintenance-retry.md) supersedes the original immediate reload/probe procedure: flag absent → stage config → baseline/generation + old-worker retirement → flag on without reload → strict multi-route 503 proof. Production nginx changes require separate approval. [Evidence](stage-4d-maintenance-diagnosis.md).
 
 **VISUAL ACCEPTED / PRODUCTION PENDING.** Разрешены только Git finalization/PR и read-only production checks. Команды и операции ниже — план; до отдельного разрешения merge/deployment не выполнять. Реальные письма не отправлять без согласования.

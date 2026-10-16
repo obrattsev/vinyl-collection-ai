@@ -1,4 +1,10 @@
+# Текущее разрешение Stage 4E
+
+16.10.2026: Stage 4D PRODUCTION DONE. Разрешены минимальные public Collection SSR/SEO, тесты, единый PR и компактный handoff Stage 5. Отдельных URL записей нет; Wish-list noindex и вне sitemap. Merge и deployment требуют отдельного разрешения. Stage 5 здесь не начинать. Исторические ограничения ниже заменены этим решением.
+
 # Работа над Vinyl Collection AI
+
+> Актуальное решение 16.10.2026: разрешённый controlled deployment exact SHA `d5f0ee90632339c8470cb9d710f32e99182098c2` завершён, **Stage 4D — PRODUCTION DONE**. Schema 7, все обязательные технические gates пройдены; Bug Report email подтверждён владельцем; получение первого ежедневного отчёта — отложенная проверка. Дополнительная visual acceptance не требуется. Новые функциональные изменения, Git publication и Stage 4E не разрешены этим закрытием. [Production report](docs/stage-4d-production.md). Старые authorization/status записи ниже — история.
 
 > Authorization update 15.10.2026: maintenance fix and isolated tests accepted. Branch/commit/push/separate PR for maintenance tools, release checks and documentation authorized. Merge and all production mutations (maintenance, deployment, backup/restore, migrations, real email) remain prohibited pending separate approval. Functional Stage 4D scope unchanged. [Retry plan](docs/stage-4d-maintenance-retry.md).
 

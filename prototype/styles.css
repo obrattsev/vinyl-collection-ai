@@ -412,3 +412,11 @@ th { vertical-align: middle; }
   #cancel-cover { display: block; }
   #cancel-cover, #save-cover { flex: 1 1 0; min-width: 0; margin-left: 0; padding-inline: 12px; }
 }
+
+/* Initial public HTML remains readable without JavaScript; removed after API rendering. */
+.public-catalogue { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.public-catalogue article { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; min-width: 0; overflow-wrap: anywhere; }
+.public-catalogue h2 { font-size: 1rem; }
+.public-catalogue dl > div { display: flex; gap: .5rem; }
+.public-catalogue dt { font-weight: 600; }
+.public-catalogue dd { margin: 0; }

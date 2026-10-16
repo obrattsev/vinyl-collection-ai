@@ -1,6 +1,6 @@
 # Backlog Vinyl Collection AI
 
-> Stage 4E — **LOCAL DONE / PRODUCTION PENDING** (16.10.2026). Публичная Collection получает initial HTML, metadata/OG/canonical, robots/sitemap; Wish-list noindex, отдельных URL записей нет. 520/520 regression, 111/111 PG. Merge/deployment только после отдельного разрешения. Самостоятельные browser UI проверки прекращены по решению владельца; при реальной необходимости подготовить локальный стенд и запросить конкретную проверку. Stage 5 не начат.
+> Актуальный итог 16.10.2026: **Stage 4A–4E DONE / Stage 4 COMPLETE**. Stage 4E — **PRODUCTION DONE**, exact SHA `18d0a430299a3b20c36ddf725de2547aee16e2aa`, schema 7. Сайт открыт, frozen=false, исходный nginx восстановлен. [Handoff Stage 5](stage-5-handoff.md). Stage 5 здесь не начинать; более ранние статусы ниже — история.
 
 > Актуальный статус 16.10.2026: **Stage 4D — PRODUCTION DONE / SUCCESS**. Production `d5f0ee90632339c8470cb9d710f32e99182098c2`, PostgreSQL schema 7. Maintenance/restore/migrations/session/data/mirror/backup/Postbox gates пройдены; тестовое письмо получено владельцем. Daily statistics timers включены на 10:00 МСК, первый отчёт 16.10 — отложенная проверка. [Итоговый отчёт](stage-4d-production.md). Stage 4E разрешён последующим запросом владельца. Прежние статусы ниже исторические.
 
@@ -214,39 +214,49 @@ Landing, принятый UI Collection/Wish-list, registration/OTP/login/logout
 
 API: существующие Google Sheets и Yandex Cloud Postbox SMTP; новых services/providers/databases нет. Риски: privacy пользовательского текста, archive retention и ambiguous external results. Report archive остаётся независимым от удаления аккаунта, как существующий Sheets archive; хранится user UUID без email. Durable report/статусы входят в стандартный PG dump; backup-role SELECT grant добавлен. Не добавлять публичный inbox/status endpoint или произвольные recipients.
 
-### 4E — PUBLIC PAGES / SEO — LOCAL DONE / PRODUCTION PENDING
+### 4E — PUBLIC PAGES / SEO — PRODUCTION DONE
 
 Зависит от принятого и закрытого 4D. Цель — индексируемые public страницы без раскрытия private данных. Персональные URLs `/{login}/collection`, `/{login}/wishlist`, resolver/aliases и разграничение уже реализованы в 4C/PR #31; их не создавать заново. Collection индексируется; ранее согласованный Public Wish-list **noindex и вне sitemap** сохраняется до отдельного решения, metadata остаются корректными. Нового frontend framework и отдельных album pages нет. Все задачи HIGH для privacy, MEDIUM для остальных; статус каждой ниже указан отдельно; внешние API не нужны, кроме необязательной внешней post-deploy проверки поисковиков.
 
-#### 4E.1. Server-side rendering — LOCAL DONE
+#### 4E.1. Server-side rendering — PRODUCTION DONE
 
 Цель/результат: каталог public Collection в initial HTML через небольшой renderer текущего Node stack. Сервер выдаёт публичную проекцию записей в initial HTML; после успешной загрузки клиент заменяет её прежней таблицей/mobile list. При отказе доступа или ошибке начальный каталог удаляется. Зависимости: 4D. Приёмка: raw HTML без JS содержит только public allowlist; desktop/mobile и client search/sort/CSV/Streaming/Quote работают; owner management сохраняется. Риск: XSS, двойное состояние и private projection; API: existing public scoped reads.
 
-#### 4E.2. SEO metadata — LOCAL DONE
+#### 4E.2. SEO metadata — PRODUCTION DONE
 
 Цель/результат: title/description/headings/canonical для root и персональных public URL; статические titles не считать полноценной реализацией. Зависит от 4E.1. Приёмка: уникальная escaped metadata, canonical без tracking/search дублей, корректные metadata Wish-list при noindex, auth/private не индексируются. Риск: вывести email/ФИО/покупки в metadata; API: нет новых.
 
-#### 4E.3. Robots и sitemap — LOCAL DONE
+#### 4E.3. Robots и sitemap — PRODUCTION DONE
 
 Результат: robots.txt и dynamic sitemap.xml только для допустимых public активных Collection и root; private/auth/account/API/technical/Wish-list исключены. Зависит от 4E.1/2. Приёмка: XML валиден, закрытие/удаление исключает URL, robots не подменяет auth. Риск: sitemap/cache после privacy change; API: existing scoped DB read.
 
-#### 4E.4. OpenGraph — LOCAL DONE
+#### 4E.4. OpenGraph — PRODUCTION DONE
 
 Результат: escaped title/description/URL и доступное public image при наличии. Зависит от 4E.2/5. Приёмка: private cover не попадает в OG, корректный fallback без обложки, персональные canonical URLs. Риск: social crawler cache; API: existing authorized Covers, без внешней выгрузки private images.
 
-#### 4E.5. Приватность и индексация — LOCAL DONE, HIGH
+#### 4E.5. Приватность и индексация — PRODUCTION DONE, HIGH
 
 Результат: распространить существующий server authorization на SSR/metadata/sitemap/cache. Зависит от 4E.1–4; тесты проектировать вместе с renderer. Приёмка A/B/guest: закрытые списки/Covers/CSV, toggle visibility, deleted/nonexistent account не раскрываются ни в HTML, ни в metadata/sitemap; salePrice только при разрешении; Email/ФИО/purchase/storeUrl/record UUID не публикуются. Риск: публичный кеш чужой owner projection; API: existing auth/public projection.
 
-#### 4E.6. HTTP и SEO-корректность — LOCAL DONE
+#### 4E.6. HTTP и SEO-корректность — PRODUCTION DONE
 
 Результат: проверить существующие GET/HEAD/status/aliases/redirects и добавить SEO tests, canonical/query/noindex rules. Зависит от 4E.1–5. Приёмка: корректные 404 для private/nonexistent по принятому контракту, никаких session-dependent permanent redirects, duplicate URL не индексируются, служебные/API страницы исключены, escaped SSR. Проверить favicon/alt/semantic headings и сохранение release/backup readiness. Search Console/Яндекс Вебмастер/submission — отдельные согласованные post-deploy операции, не выполнены. Риск: кэш редиректа и stale sitemap; API: внутренние HTTP checks.
 
-#### Публикация 4E
+#### Итог публикации 4E — 16.10.2026
 
-Новых миграций, grants, конфигурации, зависимостей и timers нет; schema остаётся 7. После согласованного merge зафиксировать exact SHA и выполнить существующий controlled release plan 4D: baseline/compatibility → runtime artifact → nginx generation и завершение старых workers → maintenance probes → freeze/drain → свежий PG+Covers backup и изолированное восстановление → переключение → private smoke → thaw и внешний smoke. Миграции 006/007 уже установлены: **не применять повторно**. Rollback приложения на d5f0ee9 при schema 7, без отката PostgreSQL. Не повторять реальные test emails и Bug Reports: интеграции не менялись. SEO smoke: root/public Collection HTML и canonical, robots/sitemap, private 404, Wish-list noindex, no-store. Любой обязательный gate FAIL — STOP/безопасный rollback по существующему плану.
+Exact production SHA `18d0a430299a3b20c36ddf725de2547aee16e2aa` (PR #35); schema **7**, новых миграций/grants/зависимостей нет. Candidate/rollback compatibility PASS. Fresh PG+Covers backup и реальное isolated restore PASS: все пользовательские записи, auth integrity и 74 Cover-файла сверены; тестовая копия удалена. Production PostgreSQL не восстанавливался, rollback приложения не потребовался.
 
-Поисковая индексация и удаление прежних результатов/OG previews зависят от повторного обхода внешними системами; мгновенное удаление их кешей не обещается. Search Console/Вебмастер не подключались. Окончательный production SHA и закрытие Stage 4 фиксируются только после разрешённой публикации 4E. [Handoff Stage 5](stage-5-handoff.md).
+Maintenance generation/retirement и 168/168 внешних 503 probes пройдены. После переключения первый private smoke завершился общей ошибкой и управляющая сессия прервалась из-за лимита approval; сайт остался в maintenance. По отдельному разрешению восстановление продолжено на исправном candidate. Подтверждён дефект порядка действий: Type=simple стал active в 09:30:18 UTC, Node listener готов в 09:30:20; smoke запускался без подтверждения listener readiness. Точный сетевой код первого сбоя не сохранён, поэтому startup race — вероятное объяснение, не доказанная единственная причина. Код приложения и release-скрипты не менялись; обязательный порядок фаз закреплён в AGENTS.md.
+
+Доступ восстановлен **16.10.2026 17:21:06 МСК**. Maintenance с 12:29:02 МСК: **17 524,024 секунды (4 ч 52 мин 4 с)**, включая прерывание сессии. Длительная недоступность не скрывается за успешным итогом выпуска.
+
+Финальные gates: private/public HTTP smoke 11/11; после возврата исходного nginx HTTP/HTTPS canonical/www baseline 56/56, markers отсутствуют; внешний SEO/privacy 34 проверки, включая 2 закрытые страницы и 2 приватных Cover URL. Отключённых аккаунтов в production не было: этот случай покрыт локальными PG tests, реальные аккаунты ради проверки не создавались/не менялись. Один промежуточный expanded network probe получил PROBE_UNAVAILABLE; успешный финальный baseline выполнен после фактического восстановления nginx, не подменяет первоначальный сбой.
+
+Данные: 30 Collection, Wish-list 12 всего / 11 владельца, 6 Favorites, 37 Covers / 74 файла; hashes таблиц, активные сессии и Cover hashes совпали. Mirror 12/12, no_error; read-back Sheets совпал с PG (30/11). App/mirror/backup/health/statistics timers active, NRestarts=0, error-level журналов нет. Postbox TLS/auth PASS без отправки тестового письма. Ежедневный отчёт за 15.10 имеет sent/attempts=1; inbox — отложенная проверка.
+
+Локальные проверки принятого кода: regression 520/520, PG 111/111, auth-copy 18/18, npm audit 0. Exact source archive hash проверен при подготовке runtime; дополнительная повторная финальная сверка файлов и запись SUCCESS.json не выполнены из-за двух timeout автоматического approval. Это не изменяло release или обязательные проверенные gates. Evidence/backup сохранены в существующем operation directory; пользовательские данные и backup не удалялись.
+
+Поисковая индексация, Search Console/Яндекс Вебмастер и внешние OG кеши остаются внешними/необязательными проверками; регистрации в сторонних сервисах не выполнялись. Stage 5 — отдельный чат по компактному handoff.
 
 ## Этап 5 — AI / MUSIC DATA
 

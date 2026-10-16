@@ -44,7 +44,22 @@ test('PG authorized genre inputs isolate A/B and sections; public visitor sees o
   }
   assert.equal((await get('/api/u/'+b.login+'/collection')).status,403);
   assert.equal((await get('/api/collection')).status,401);
+  for(const visitor of [null,a,b]) {
+   const page=await get('/'+a.login+'/collection',visitor),html=await page.text();
+   assert.equal(page.status,200);assert.equal(page.headers.get('x-robots-tag'),'index, follow');
+   assert.match(html,/Public A 0/);assert.doesNotMatch(html,/Private B|Тестовый магазин|2026-09-03/);
+  }
+  let map=await(await get('/sitemap.xml')).text();assert.ok(map.includes('/'+a.login+'/collection'));assert.ok(!map.includes('/'+b.login+'/collection'));assert.ok(!map.includes('/wishlist'));
   await pool.query('UPDATE vinyl.users SET collection_public=false WHERE id=$1',[a.session.userId]);
+  assert.equal((await get('/'+a.login+'/collection',b)).status,404);
+  assert.ok(!(await(await get('/sitemap.xml')).text()).includes('/'+a.login+'/collection'));
+  await pool.query('UPDATE vinyl.users SET collection_public=true WHERE id=$1',[a.session.userId]);
+  await pool.query("UPDATE vinyl.user_auth SET status='disabled' WHERE user_id=$1",[a.session.userId]);
+  assert.equal((await get('/'+a.login+'/collection')).status,404);
+  assert.ok(!(await(await get('/sitemap.xml')).text()).includes('/'+a.login+'/collection'));
+  await pool.query("UPDATE vinyl.user_auth SET status='active' WHERE user_id=$1",[a.session.userId]);
+  await pool.query('UPDATE vinyl.users SET collection_public=false WHERE id=$1',[a.session.userId]);
+
   assert.equal((await get('/api/u/'+a.login+'/collection')).status,403);
   assert.deepEqual(genresInRecords(await (await get('/api/collection',a)).json()),['Rock','Blues','Jazz']);
  }finally{if(server)await new Promise(resolve=>{server.close(resolve);server.closeAllConnections();});await auth?.store.flushMail();await pool.end();}

@@ -244,7 +244,7 @@ test('profile routes resolve the requested user, enforce independent privacy and
  t.after(()=>new Promise(resolve=>{app.close(resolve);app.closeAllConnections();}));
  const base=`http://127.0.0.1:${app.address().port}`;
  const path=`/${a.login}/collection`,api=`/api/u/${a.login}/collection`;
- const closed=await fetch(base+path);assert.equal(closed.status,403);assert.match(await closed.text(),/Коллекция закрыта/);
+ const closed=await fetch(base+path);assert.equal(closed.status,404);assert.match(await closed.text(),/Коллекция закрыта/);
  assert.equal((await fetch(base+api,{headers:{Cookie:'b'}})).status,403);
  assert.equal((await fetch(base+path,{headers:{Cookie:'a'}})).status,200);
  await pool.query('UPDATE vinyl.users SET collection_public=true WHERE id=$1',[as.userId]);
@@ -271,7 +271,7 @@ test('profile routes resolve the requested user, enforce independent privacy and
  const ownB=await(await fetch(base+'/api/collection',{headers:{Cookie:'b'}})).json();
  assert.equal(ownB.length,1);assert.equal(ownB[0].artist,'Profile B');
  const own=await fetch(base+api,{headers:{Cookie:'a'}});assert.equal(own.headers.get('X-Access-Role'),'owner');assert.ok((await own.json())[0].id);
- assert.equal((await fetch(base+`/u/${a.login}/wishlist`)).status,403);
+ assert.equal((await fetch(base+`/u/${a.login}/wishlist`)).status,404);
  const alias=await fetch(base+`/u/${a.login}`,{redirect:'manual'});assert.equal(alias.headers.get('location'),path);
  const html=await(await fetch(base+path)).text();assert.ok(html.includes(`href="/${a.login}/wishlist"`));
  assert.equal((await fetch(base+api,{method:'POST',headers:{Cookie:'b'},body:'{}'})).status,405);
@@ -638,7 +638,7 @@ test('restore without ledger keeps mirror blocked until OTP recovery and never r
  const adapter={read:async section=>{calls++;return snapshot[section];},replace:async(section,rows)=>{calls++;snapshot[section]=rows;}};
  await quarantineRestoredAuth(pool);
  assert.equal((await reconcile(pool,as.userId,adapter,{force:true})).status,'quarantined');assert.equal(calls,0);
- await assert.rejects(scopedServices(pool,as.userId,null).profile(a.login,'collection',null),/COLLECTION_PRIVATE/);
+ await assert.rejects(scopedServices(pool,as.userId,null).profile(a.login,'collection',null),/NOT_FOUND/);
  const flow=await c.store.start('reset',{email:a.email},c.ip);await c.store.flushMail();
  const verified=await c.store.verify(flow.token,c.messages.at(-1).code,c.ip);
  await c.store.complete(verified.token,{password:changed,repeat:changed},c.ip);

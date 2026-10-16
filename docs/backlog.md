@@ -1,5 +1,9 @@
 # Backlog Vinyl Collection AI
 
+> Stage 4E — **LOCAL DONE / PRODUCTION PENDING** (16.10.2026). Публичная Collection получает initial HTML, metadata/OG/canonical, robots/sitemap; Wish-list noindex, отдельных URL записей нет. 520/520 regression, 111/111 PG. Merge/deployment только после отдельного разрешения. Самостоятельные browser UI проверки прекращены по решению владельца; при реальной необходимости подготовить локальный стенд и запросить конкретную проверку. Stage 5 не начат.
+
+> Актуальный статус 16.10.2026: **Stage 4D — PRODUCTION DONE / SUCCESS**. Production `d5f0ee90632339c8470cb9d710f32e99182098c2`, PostgreSQL schema 7. Maintenance/restore/migrations/session/data/mirror/backup/Postbox gates пройдены; тестовое письмо получено владельцем. Daily statistics timers включены на 10:00 МСК, первый отчёт 16.10 — отложенная проверка. [Итоговый отчёт](stage-4d-production.md). Stage 4E разрешён последующим запросом владельца. Прежние статусы ниже исторические.
+
 > Maintenance gate: LOCAL FIX ACCEPTED / PR AUTHORIZED / PRODUCTION UNCHANGED. Diagnosis and isolated nginx proof accepted; 517/517 regression. Separate maintenance PR authorized; merge and production retry require new approval. [Diagnosis](stage-4d-maintenance-diagnosis.md), [retry plan](stage-4d-maintenance-retry.md).
 
 > Current authorization 15.10.2026: owner VISUAL ACCEPTANCE complete (including package 1). Git branch/commit/push/PR and production READ-ONLY audit authorized. Merge, deployment, production changes and real emails require separate approval. LOCAL DONE / VISUAL ACCEPTED / PRODUCTION PENDING.
@@ -210,33 +214,39 @@ Landing, принятый UI Collection/Wish-list, registration/OTP/login/logout
 
 API: существующие Google Sheets и Yandex Cloud Postbox SMTP; новых services/providers/databases нет. Риски: privacy пользовательского текста, archive retention и ambiguous external results. Report archive остаётся независимым от удаления аккаунта, как существующий Sheets archive; хранится user UUID без email. Durable report/статусы входят в стандартный PG dump; backup-role SELECT grant добавлен. Не добавлять публичный inbox/status endpoint или произвольные recipients.
 
-### 4E — PUBLIC PAGES / SEO — PLANNED
+### 4E — PUBLIC PAGES / SEO — LOCAL DONE / PRODUCTION PENDING
 
 Зависит от принятого и закрытого 4D. Цель — индексируемые public страницы без раскрытия private данных. Персональные URLs `/{login}/collection`, `/{login}/wishlist`, resolver/aliases и разграничение уже реализованы в 4C/PR #31; их не создавать заново. Collection индексируется; ранее согласованный Public Wish-list **noindex и вне sitemap** сохраняется до отдельного решения, metadata остаются корректными. Нового frontend framework и отдельных album pages нет. Все задачи HIGH для privacy, MEDIUM для остальных; статус каждой ниже указан отдельно; внешние API не нужны, кроме необязательной внешней post-deploy проверки поисковиков.
 
-#### 4E.1. Server-side rendering — PARTIAL
+#### 4E.1. Server-side rendering — LOCAL DONE
 
-Цель/результат: каталог public Collection в initial HTML через небольшой renderer текущего Node stack. Сейчас сервер выдаёт template/profile context, каталог загружается клиентом; public routing DONE, индексируемый каталог TODO. Зависимости: 4D. Приёмка: raw HTML без JS содержит только public allowlist; desktop/mobile и client search/sort/CSV/Streaming/Quote работают; owner management сохраняется. Риск: XSS, двойное состояние и private projection; API: existing public scoped reads.
+Цель/результат: каталог public Collection в initial HTML через небольшой renderer текущего Node stack. Сервер выдаёт публичную проекцию записей в initial HTML; после успешной загрузки клиент заменяет её прежней таблицей/mobile list. При отказе доступа или ошибке начальный каталог удаляется. Зависимости: 4D. Приёмка: raw HTML без JS содержит только public allowlist; desktop/mobile и client search/sort/CSV/Streaming/Quote работают; owner management сохраняется. Риск: XSS, двойное состояние и private projection; API: existing public scoped reads.
 
-#### 4E.2. SEO metadata — PARTIAL
+#### 4E.2. SEO metadata — LOCAL DONE
 
 Цель/результат: title/description/headings/canonical для root и персональных public URL; статические titles не считать полноценной реализацией. Зависит от 4E.1. Приёмка: уникальная escaped metadata, canonical без tracking/search дублей, корректные metadata Wish-list при noindex, auth/private не индексируются. Риск: вывести email/ФИО/покупки в metadata; API: нет новых.
 
-#### 4E.3. Robots и sitemap — TODO
+#### 4E.3. Robots и sitemap — LOCAL DONE
 
 Результат: robots.txt и dynamic sitemap.xml только для допустимых public активных Collection и root; private/auth/account/API/technical/Wish-list исключены. Зависит от 4E.1/2. Приёмка: XML валиден, закрытие/удаление исключает URL, robots не подменяет auth. Риск: sitemap/cache после privacy change; API: existing scoped DB read.
 
-#### 4E.4. OpenGraph — TODO
+#### 4E.4. OpenGraph — LOCAL DONE
 
 Результат: escaped title/description/URL и доступное public image при наличии. Зависит от 4E.2/5. Приёмка: private cover не попадает в OG, корректный fallback без обложки, персональные canonical URLs. Риск: social crawler cache; API: existing authorized Covers, без внешней выгрузки private images.
 
-#### 4E.5. Приватность и индексация — PARTIAL, HIGH
+#### 4E.5. Приватность и индексация — LOCAL DONE, HIGH
 
 Результат: распространить существующий server authorization на SSR/metadata/sitemap/cache. Зависит от 4E.1–4; тесты проектировать вместе с renderer. Приёмка A/B/guest: закрытые списки/Covers/CSV, toggle visibility, deleted/nonexistent account не раскрываются ни в HTML, ни в metadata/sitemap; salePrice только при разрешении; Email/ФИО/purchase/storeUrl/record UUID не публикуются. Риск: публичный кеш чужой owner projection; API: existing auth/public projection.
 
-#### 4E.6. HTTP и SEO-корректность — PARTIAL
+#### 4E.6. HTTP и SEO-корректность — LOCAL DONE
 
 Результат: проверить существующие GET/HEAD/status/aliases/redirects и добавить SEO tests, canonical/query/noindex rules. Зависит от 4E.1–5. Приёмка: корректные 404 для private/nonexistent по принятому контракту, никаких session-dependent permanent redirects, duplicate URL не индексируются, служебные/API страницы исключены, escaped SSR. Проверить favicon/alt/semantic headings и сохранение release/backup readiness. Search Console/Яндекс Вебмастер/submission — отдельные согласованные post-deploy операции, не выполнены. Риск: кэш редиректа и stale sitemap; API: внутренние HTTP checks.
+
+#### Публикация 4E
+
+Новых миграций, grants, конфигурации, зависимостей и timers нет; schema остаётся 7. После согласованного merge зафиксировать exact SHA и выполнить существующий controlled release plan 4D: baseline/compatibility → runtime artifact → nginx generation и завершение старых workers → maintenance probes → freeze/drain → свежий PG+Covers backup и изолированное восстановление → переключение → private smoke → thaw и внешний smoke. Миграции 006/007 уже установлены: **не применять повторно**. Rollback приложения на d5f0ee9 при schema 7, без отката PostgreSQL. Не повторять реальные test emails и Bug Reports: интеграции не менялись. SEO smoke: root/public Collection HTML и canonical, robots/sitemap, private 404, Wish-list noindex, no-store. Любой обязательный gate FAIL — STOP/безопасный rollback по существующему плану.
+
+Поисковая индексация и удаление прежних результатов/OG previews зависят от повторного обхода внешними системами; мгновенное удаление их кешей не обещается. Search Console/Вебмастер не подключались. Окончательный production SHA и закрытие Stage 4 фиксируются только после разрешённой публикации 4E. [Handoff Stage 5](stage-5-handoff.md).
 
 ## Этап 5 — AI / MUSIC DATA
 

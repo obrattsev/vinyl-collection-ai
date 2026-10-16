@@ -1,3 +1,4 @@
+import { metadata, catalogue, sitemap, robots } from './public-pages.mjs';
 import { publicRecords } from '../src/public-record.mjs';
 import { OperationError } from './collection-service.mjs';
 import { WishlistDataError, validateWishlist } from '../src/wishlist-record.mjs';
@@ -12,6 +13,7 @@ import { UUID } from '../src/base-record.mjs';
 
 // No user-controlled filesystem paths, directory listing, or repository-wide serving.
 const clientFiles = new Map([
+  ['/assets/favicon.svg', ['../prototype/assets/favicon.svg', 'image/svg+xml']],
   ['/assets/quote-background.webp', ['../prototype/assets/quote-background.webp', 'image/webp']],
   ['/assets/landing/velvet.webp', ['../prototype/assets/landing/velvet.webp', 'image/webp']],
   ['/assets/landing/pink-floyd.webp', ['../prototype/assets/landing/pink-floyd.webp', 'image/webp']],
@@ -64,6 +66,7 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
   let coverUploading = false;
   return createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Robots-Tag', 'noindex');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src https://embed.music.apple.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     res.setHeader('Referrer-Policy', 'same-origin');
@@ -81,6 +84,12 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         let body={};
         if(unsafe){req.setTimeout(5000,()=>req.destroy());try{body=await readBody(req,8192);}finally{req.setTimeout(0);}}
         await auth.handle(req,res,path,body,session); return;
+      }
+      if (path === '/robots.txt' || path === '/sitemap.xml') {
+        if (!['GET','HEAD'].includes(req.method)) { res.setHeader('Allow','GET, HEAD'); throw new OperationError(405,'METHOD_NOT_ALLOWED'); }
+        const content = path === '/robots.txt' ? robots : sitemap(await servicesForSession?.publicCollections?.() || []);
+        res.writeHead(200, {'Content-Type': path === '/robots.txt' ? 'text/plain; charset=utf-8' : 'application/xml; charset=utf-8'});
+        res.end(req.method === 'HEAD' ? undefined : content); return;
       }
       // Bare/legacy pages have no public owner; signed-in aliases use this session only.
       const alias = pageAliases.get(path.replace(/\/+$/, ''));
@@ -103,12 +112,11 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
           const description = error.message === 'COLLECTION_PRIVATE' ? 'Этот список доступен только владельцу. Войдите в свой аккаунт.' : 'Проверьте адрес страницы пользователя.';
           const content = (await readFile(new URL('../prototype/profile-message.html',import.meta.url),'utf8')).replaceAll('{{title}}',title).replace('{{description}}',description);
           res.setHeader('X-Robots-Tag','noindex');
-          res.writeHead(error.status,{'Content-Type':'text/html; charset=utf-8'});res.end(req.method === 'HEAD' ? undefined : content);return;
+          res.writeHead(404,{'Content-Type':'text/html; charset=utf-8'});res.end(req.method === 'HEAD' ? undefined : content);return;
         }
         const canonical = api ? `/api/u/${profile.login}/${section}` : `/${profile.login}/${section}`;
         if (path !== canonical) { res.writeHead(302,{Location:canonical});res.end();return; }
         res.setHeader('X-Access-Role',profile.owner ? 'owner' : 'guest');
-        // Full indexing/SSR belongs to 4E; these local routes are not SEO release pages.
         res.setHeader('X-Robots-Tag','noindex');
         if (api) {
           const records = (section === 'wishlist' ? validateWishlist : validateCollection)(await profile.records());
@@ -117,10 +125,19 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
           json(res,200,profile.owner ? records : publicRecords(records,profile.showSalePrice));return;
         }
         const file = clientFiles.get('/'+section);
-        const content = (await readFile(new URL(file[0],import.meta.url),'utf8'))
+        let content = (await readFile(new URL(file[0],import.meta.url),'utf8'))
           .replace('<body',`<body data-profile-login="${profile.login}"`)
           .replaceAll('href="/collection"',`href="/${profile.login}/collection"`)
           .replaceAll('href="/wishlist"',`href="/${profile.login}/wishlist"`);
+        const isPublic = profile.public === true;
+        const records = isPublic ? publicRecords((section === 'wishlist' ? validateWishlist : validateCollection)(await profile.records()),profile.showSalePrice) : [];
+        const label = section === 'collection' ? 'Коллекция' : 'Wish-list';
+        content = metadata(content,{title:`${label} ${profile.login} — Vinyl Collection AI`,
+          description:isPublic ? `${label} виниловых пластинок ${profile.login}.` : 'Личный список виниловых пластинок.',
+          path:canonical,index:isPublic && section === 'collection',image:records.find(record=>record.cover)?.cover.imageUrl});
+        content = content.replace(/(<h1 id="section-title"[^>]*>)[^<]*(<\/h1>)/,`$1${label} ${profile.login}$2`);
+        if(isPublic) content=content.replace('<div id="mobile-results"',()=>catalogue(records)+'<div id="mobile-results"');
+        if(isPublic && section === 'collection')res.setHeader('X-Robots-Tag','index, follow');
         res.writeHead(200,{'Content-Type':file[1]});res.end(req.method === 'HEAD' ? undefined : content);return;
       }
       const scoped = servicesForSession ? await servicesForSession(session) : null;
@@ -249,10 +266,16 @@ export function createApp({ getCollection, createRecord, deleteRecord, updateRec
         json(res, 405, { error: 'METHOD_NOT_ALLOWED' });
         return;
       }
-      const content = await readFile(new URL(file[0], import.meta.url));
+      let content = await readFile(new URL(file[0], import.meta.url));
+      if(path === '/' || path === '/auth') {
+        content=Buffer.from(metadata(content.toString(),{title:path==='/' ? 'Vinyl Collection AI — коллекция виниловых пластинок' : 'Личный кабинет — Vinyl Collection AI',
+          description:path==='/' ? 'Ведите коллекцию виниловых пластинок, составляйте список желаний и делитесь музыкой.' : 'Вход и управление аккаунтом Vinyl Collection AI.',path,index:path==='/'}));
+        if(path==='/')res.setHeader('X-Robots-Tag','index, follow');
+      }
       res.writeHead(200, { 'Content-Type': file[1], 'Content-Length': content.length });
       res.end(req.method === 'HEAD' ? undefined : content);
     } catch (error) {
+      res.setHeader('X-Robots-Tag','noindex');
       if (error instanceof OperationError) { if (error.details?.retryAfter) res.setHeader('Retry-After', String(error.details.retryAfter)); json(res, error.status, { error: error.message, ...error.details }); return; }
       if (error?.code === 'RESOURCE_BUSY') { json(res,503,{error:'AUTH_BUSY'}); return; }
       const code = error instanceof WishlistDataError ? 'WISHLIST_DATA_INVALID'
